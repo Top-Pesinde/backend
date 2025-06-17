@@ -1,0 +1,29 @@
+FROM node:18
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Create a startup script that runs migrations before starting the app
+RUN echo '#!/bin/sh\n\
+    echo "Running database migrations..."\n\
+    npx prisma migrate deploy\n\
+    echo "Starting application..."\n\
+    exec npm run dev\n' > /app/docker-entrypoint.sh && \
+    chmod +x /app/docker-entrypoint.sh
+
+# Expose port
+EXPOSE 3000
+
+# Development command
+CMD ["/app/docker-entrypoint.sh"] 

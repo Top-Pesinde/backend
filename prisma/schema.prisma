@@ -1,0 +1,55 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
+  username      String    @unique
+  email         String    @unique
+  password      String
+  phone         String
+  location      String?
+  bio           String?
+  profilePhoto  String?   @map("profile_photo")
+  lisans        Boolean   @default(false)
+  role          Role      @default(USER)
+  subscription  Boolean   @default(false) @map("subscription")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  documents     Document[]
+  status        Boolean   @default(true)
+
+  @@map("users")
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  fileName  String   @map("file_name")
+  fileType  String   @map("file_type")
+  filePath  String   @map("file_path")
+  fileSize  Int      @map("file_size")
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("documents")
+}
+
+enum Role {
+  USER
+  GOALKEEPER
+  REFEREE
+  FOOTBALL_FIELD_OWNER
+  ADMIN
+}
