@@ -103,6 +103,13 @@ export interface SubscriptionChangeDto {
     subscription: boolean;
 }
 
+export interface UpdateProfileDto {
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    location?: string;
+}
+
 export interface AuthResponse {
     user: Omit<User, 'password'>;
     accessToken: string;
@@ -140,4 +147,8 @@ export interface PaginatedResponse<T> {
         total: number;
         totalPages: number;
     };
-} 
+}
+export interface ChangePasswordDto {
+    currentPassword: string;
+    newPassword: string;
+}

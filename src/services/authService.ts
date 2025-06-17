@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto } from '../types';
+import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto } from '../types';
 import { prisma } from '../lib/prisma';
 
 export class AuthService {
@@ -446,4 +446,129 @@ export class AuthService {
             };
         }
     }
-} 
+
+    async changeUserProfile(userId: string, profileData: UpdateProfileDto): Promise<ServiceResponse<{ user: any }>> {
+        try {
+            // Check if user exists
+            const existingUser = await prisma.user.findUnique({
+                where: { id: userId },
+                include: { documents: true }
+            });
+
+            if (!existingUser) {
+                return {
+                    success: false,
+                    error: 'User not found',
+                    statusCode: 404,
+                };
+            }
+
+            // Check if email is being updated and if it's already in use
+            if (profileData.email && profileData.email !== existingUser.email) {
+                const emailExists = await prisma.user.findFirst({
+                    where: {
+                        email: profileData.email,
+                        id: { not: userId } // Exclude current user
+                    }
+                });
+
+                if (emailExists) {
+                    return {
+                        success: false,
+                        error: 'Email already exists',
+                        statusCode: 400,
+                    };
+                }
+            }
+
+            // Prepare update data
+            const updateData: any = {};
+            if (profileData.email) updateData.email = profileData.email;
+            if (profileData.firstName) updateData.firstName = profileData.firstName;
+            if (profileData.lastName) updateData.lastName = profileData.lastName;
+            if (profileData.location !== undefined) updateData.location = profileData.location;
+
+            // Update user profile
+            const updatedUser = await prisma.user.update({
+                where: { id: userId },
+                data: updateData,
+                include: { documents: true }
+            });
+
+            // Remove password from response
+            const { password: _, ...userWithoutPassword } = updatedUser;
+
+            return {
+                success: true,
+                data: { user: userWithoutPassword },
+                statusCode: 200,
+            };
+        } catch (error) {
+            console.error('Error updating user profile:', error);
+            return {
+                success: false,
+                error: 'Failed to update user profile',
+                statusCode: 500,
+            };
+        }
+    }
+
+    async changeUserPassword(userId: string, passwordData: ChangePasswordDto): Promise<ServiceResponse> {
+        try {
+            // Get user from database
+            const user = await prisma.user.findFirst({
+                where: { id: userId },
+                select: { id: true, password: true }
+            });
+
+            if (!user) {
+                return {
+                    success: false,
+                    error: 'User not found',
+                    statusCode: 404
+                };
+            }
+
+            const isPasswordValid = await bcrypt.compare(passwordData.currentPassword, user.password);
+
+            if (!isPasswordValid) {
+                return {
+                    success: false,
+                    error: 'Current password is incorrect',
+                    statusCode: 401
+                };
+            }
+
+            // Validate new password
+            if (passwordData.newPassword.length < 6) {
+                return {
+                    success: false,
+                    error: 'New password must be at least 6 characters long',
+                    statusCode: 400
+                };
+            }
+
+            // Hash new password
+            const hashedPassword = await bcrypt.hash(passwordData.newPassword, 10);
+
+            // Update user password
+            await prisma.user.update({
+                where: { id: userId },
+                data: { password: hashedPassword }
+            })
+
+            return {
+                success: true,
+                statusCode: 200
+            };
+        } catch (error) {
+            console.error('Error changing password:', error);
+            return {
+                success: false,
+                error: 'Failed to change password',
+                statusCode: 500
+            };
+        }
+    }
+
+}

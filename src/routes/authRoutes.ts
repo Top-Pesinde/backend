@@ -45,6 +45,7 @@ router.post('/refresh', authController.refreshToken.bind(authController));
 
 // GET /api/auth/profile - Kullanıcı profili (korumalı)
 router.get('/profile', authenticateToken, authController.getProfile.bind(authController));
+router.post('/change-password', authenticateToken, authController.changeUserPassword.bind(authController));
 
 // PUT /api/auth/status - Kullanıcı durumu değiştirme (korumalı)
 router.put('/status', authenticateToken, authController.statusChangeAuth.bind(authController));
@@ -52,4 +53,7 @@ router.put('/status', authenticateToken, authController.statusChangeAuth.bind(au
 // PUT /api/auth/subscription - Kullanıcı abonelik durumu değiştirme (korumalı)
 router.put('/subscription', authenticateToken, authController.subscriptionChangeAuth.bind(authController));
 
-export { router as authRoutes }; 
+// PUT /api/auth/profile - Kullanıcı profil güncelleme (korumalı)
+router.put('/profile', authenticateToken, authController.changeUserProfile.bind(authController));
+
+export { router as authRoutes };

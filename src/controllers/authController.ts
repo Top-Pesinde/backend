@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/authService';
-import { ApiResponse, RegisterDto, LoginDto, StatusChangeDto, SubscriptionChangeDto } from '../types';
+import { ApiResponse, RegisterDto, LoginDto, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto } from '../types';
 import { metricsService } from '../services/metricsService';
 
 const authService = new AuthService();
@@ -293,4 +293,119 @@ export class AuthController {
             res.status(500).json(response);
         }
     }
-} 
+
+    async changeUserProfile(req: Request, res: Response): Promise<void> {
+        try {
+            // Get user ID from the authenticated user
+            const user = (req as any).user;
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const profileData: UpdateProfileDto = req.body;
+
+            // Validate at least one field is provided
+            if (!profileData.email && !profileData.firstName && !profileData.lastName && profileData.location === undefined) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'At least one field (email, firstName, lastName, location) must be provided',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Basic email validation if provided
+            if (profileData.email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(profileData.email)) {
+                    const response: ApiResponse = {
+                        success: false,
+                        message: 'Invalid email format',
+                        timestamp: new Date().toISOString(),
+                    };
+                    res.status(400).json(response);
+                    return;
+                }
+            }
+
+            const result = await authService.changeUserProfile(user.id, profileData);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success
+                    ? 'Profile updated successfully'
+                    : result.error || 'Failed to update profile',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+            };
+
+            res.status(500).json(response);
+        }
+    }
+
+    async changeUserPassword(req: Request, res: Response): Promise<void> {
+        try {
+            const user = (req as any).user;
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const passwordData: any = req.body;
+
+            // Validate current password
+            if (!passwordData.currentPassword || !passwordData.newPassword) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Current password and new password are required',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            const result = await authService.changeUserPassword(user.id, passwordData);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success
+                    ? 'Password changed successfully'
+                    : result.error || 'Failed to change password',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+            };
+
+            res.status(500).json(response);
+        }
+    }
+}
