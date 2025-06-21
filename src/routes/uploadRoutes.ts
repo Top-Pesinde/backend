@@ -33,6 +33,13 @@ router.post('/profile-photo',
     uploadController.uploadProfilePhoto.bind(uploadController)
 );
 
+// PUT /api/uploads/profile-photo - Update profile photo (korumalı)
+router.put('/profile-photo',
+    authenticateToken,
+    upload.single('profilePhoto'),
+    uploadController.updateProfilePhoto.bind(uploadController)
+);
+
 // POST /api/uploads/documents - Upload documents (korumalı)
 router.post('/documents',
     authenticateToken,

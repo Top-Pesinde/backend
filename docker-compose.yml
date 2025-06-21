@@ -1,28 +1,6 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: express-api-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-      POSTGRES_DB: express_api_db
-      POSTGRES_HOST_AUTH_METHOD: trust
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-db:/docker-entrypoint-initdb.d
-    networks:
-      - app-network
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: express-api-pgadmin
@@ -37,9 +15,6 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     networks:
       - app-network
-    depends_on:
-      - postgres
-
   # Redis (cache için isteğe bağlı)
   redis:
     image: redis:7-alpine
@@ -88,20 +63,6 @@ services:
     entrypoint: >
       /bin/sh -c " /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin123; /usr/bin/mc mb myminio/profile-photos --ignore-existing; /usr/bin/mc mb myminio/documents --ignore-existing; /usr/bin/mc mb myminio/general-uploads --ignore-existing; /usr/bin/mc policy set public myminio/profile-photos; exit 0; "
 
-  # PostgreSQL Exporter for Prometheus metrics
-  postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
-    container_name: express-api-postgres-exporter
-    environment:
-      DATA_SOURCE_NAME: "postgresql://postgres:postgres123@postgres:5432/express_api_db?sslmode=disable"
-    ports:
-      - "9187:9187"
-    networks:
-      - app-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   # Redis Exporter for Prometheus metrics
   redis-exporter:
     image: oliver006/redis_exporter:latest
@@ -140,8 +101,6 @@ services:
     networks:
       - app-network
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_started
       minio:
@@ -192,8 +151,6 @@ services:
       - prometheus
 
 volumes:
-  postgres_data:
-    driver: local
   pgadmin_data:
     driver: local
   redis_data:

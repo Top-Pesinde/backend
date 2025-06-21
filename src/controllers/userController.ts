@@ -7,6 +7,46 @@ const userService = new UserService();
 const minioService = new MinioService();
 
 export class UserController {
+    async getCurrentUser(req: Request, res: Response): Promise<void> {
+        try {
+            const currentUser = (req as any).user as User;
+
+            if (!currentUser) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Authentication required',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            // Get complete user information including documents
+            const result = await userService.getUserById(currentUser.id);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success ? 'User information fetched successfully' : result.error || 'Failed to fetch user information',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
+            };
+
+            res.status(result.statusCode || 200).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+
+            res.status(500).json(response);
+        }
+    }
+
     async getAllUsers(req: Request, res: Response): Promise<void> {
         try {
             const currentUser = (req as any).user as User;
@@ -750,9 +790,4 @@ export class UserController {
             res.status(500).json(response);
         }
     }
-
-
-
-
-
 }

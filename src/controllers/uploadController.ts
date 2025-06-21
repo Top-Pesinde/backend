@@ -317,4 +317,102 @@ export class UploadController {
             res.status(500).json(response);
         }
     }
+
+    async updateProfilePhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const user = req.user;
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const file = req.file;
+            if (!file) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'No file uploaded',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            if (!allowedTypes.includes(file.mimetype)) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Only image files are allowed for profile photos',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Import prisma to check if user has existing profile photo
+            const { prisma } = await import('../lib/prisma');
+
+            // Get user with profile photo
+            const existingUser = await prisma.user.findUnique({
+                where: { id: user.id },
+                select: { profilePhoto: true }
+            });
+
+            // If user has existing profile photo, delete it
+            if (existingUser?.profilePhoto) {
+                // Extract file name from URL
+                const url = existingUser.profilePhoto;
+                const urlParts = url.split('/');
+                const fileName = urlParts[urlParts.length - 1];
+
+                // Delete old file from MinIO
+                const bucketName = minioService.getBucketName('profile');
+                await minioService.deleteFile(bucketName, fileName);
+                // We continue even if delete fails, to upload the new photo
+            }
+
+            // Upload new profile photo
+            const uploadResult = await minioService.uploadFile(file, 'profile', user.id);
+
+            if (!uploadResult.success) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Failed to upload new profile photo',
+                    error: uploadResult.error,
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(uploadResult.statusCode || 500).json(response);
+                return;
+            }
+
+            // Update user with new profile photo URL
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { profilePhoto: uploadResult.data?.url }
+            });
+
+            const response: ApiResponse = {
+                success: true,
+                message: 'Profile photo updated successfully',
+                data: uploadResult.data,
+                timestamp: new Date().toISOString(),
+            };
+
+            res.status(200).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+            };
+
+            res.status(500).json(response);
+        }
+    }
 } 

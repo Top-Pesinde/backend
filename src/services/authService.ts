@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto } from '../types';
+import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto, UpdateContactInfoDto } from '../types';
 import { prisma } from '../lib/prisma';
 
 export class AuthService {
@@ -567,6 +567,237 @@ export class AuthService {
                 success: false,
                 error: 'Failed to change password',
                 statusCode: 500
+            };
+        }
+    }
+
+    async deleteProfilePhoto(userId: string): Promise<ServiceResponse<{ user: any }>> {
+        try {
+            // Check if user exists
+            const existingUser = await prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    id: true,
+                    profilePhoto: true
+                }
+            });
+
+            if (!existingUser) {
+                return {
+                    success: false,
+                    error: 'User not found',
+                    statusCode: 404,
+                };
+            }
+
+            // Check if user has a profile photo
+            if (!existingUser.profilePhoto) {
+                return {
+                    success: false,
+                    error: 'User does not have a profile photo',
+                    statusCode: 400,
+                };
+            }
+
+            // Extract file name from URL
+            const url = existingUser.profilePhoto;
+            const urlParts = url.split('/');
+            const fileName = urlParts[urlParts.length - 1];
+
+            // Delete file from MinIO
+            const { MinioService } = await import('../services/minioService');
+            const minioService = new MinioService();
+
+            const bucketName = minioService.getBucketName('profile');
+            const deleteResult = await minioService.deleteFile(bucketName, fileName);
+
+            if (!deleteResult.success) {
+                return {
+                    success: false,
+                    error: 'Failed to delete profile photo from storage',
+                    statusCode: 500,
+                };
+            }
+
+            // Update user profile to remove photo reference
+            const updatedUser = await prisma.user.update({
+                where: { id: userId },
+                data: { profilePhoto: null },
+                include: { documents: true }
+            });
+
+            // Remove password from response
+            const { password: _, ...userWithoutPassword } = updatedUser;
+
+            return {
+                success: true,
+                data: { user: userWithoutPassword },
+                statusCode: 200,
+            };
+        } catch (error) {
+            console.error('Error deleting profile photo:', error);
+            return {
+                success: false,
+                error: 'Failed to delete profile photo',
+                statusCode: 500,
+            };
+        }
+    }
+
+    private validatePhoneNumber(phone: string): boolean {
+        // Türkiye telefon numarası formatı validasyonu
+        // Kabul edilen formatlar:
+        // +90XXXXXXXXXX, 90XXXXXXXXXX, 0XXXXXXXXXX, XXXXXXXXXX
+        const phoneRegex = /^(\+90|90|0)?[5][0-9]{9}$/;
+
+        // Sadece sayıları al
+        const numbersOnly = phone.replace(/\D/g, '');
+
+        // +90 ile başlıyorsa 90'ı çıkar
+        let normalizedPhone = numbersOnly;
+        if (normalizedPhone.startsWith('90') && normalizedPhone.length === 12) {
+            normalizedPhone = normalizedPhone.substring(2);
+        }
+
+        // 0 ile başlıyorsa 0'ı çıkar
+        if (normalizedPhone.startsWith('0') && normalizedPhone.length === 11) {
+            normalizedPhone = normalizedPhone.substring(1);
+        }
+
+        // Son kontrol: 10 haneli ve 5 ile başlamalı
+        return normalizedPhone.length === 10 && normalizedPhone.startsWith('5');
+    }
+
+    private normalizePhoneNumber(phone: string): string {
+        // Telefon numarasını standart formata çevir: 5XXXXXXXXX
+        const numbersOnly = phone.replace(/\D/g, '');
+
+        let normalizedPhone = numbersOnly;
+        if (normalizedPhone.startsWith('90') && normalizedPhone.length === 12) {
+            normalizedPhone = normalizedPhone.substring(2);
+        }
+
+        if (normalizedPhone.startsWith('0') && normalizedPhone.length === 11) {
+            normalizedPhone = normalizedPhone.substring(1);
+        }
+
+        return normalizedPhone;
+    }
+
+    async updateContactInfo(userId: string, contactData: UpdateContactInfoDto): Promise<ServiceResponse<{ user: any }>> {
+        try {
+            // Check if user exists
+            const existingUser = await prisma.user.findUnique({
+                where: { id: userId },
+                include: { documents: true }
+            });
+
+            if (!existingUser) {
+                return {
+                    success: false,
+                    error: 'User not found',
+                    statusCode: 404,
+                };
+            }
+
+            // Validate email format if provided
+            if (contactData.email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(contactData.email)) {
+                    return {
+                        success: false,
+                        error: 'Invalid email format',
+                        statusCode: 400,
+                    };
+                }
+
+                // Check if email already exists (exclude current user)
+                if (contactData.email !== existingUser.email) {
+                    const emailExists = await prisma.user.findFirst({
+                        where: {
+                            email: contactData.email,
+                            id: { not: userId }
+                        }
+                    });
+
+                    if (emailExists) {
+                        return {
+                            success: false,
+                            error: 'Email already exists',
+                            statusCode: 400,
+                        };
+                    }
+                }
+            }
+
+            // Validate phone number if provided
+            let normalizedPhone: string | undefined;
+            if (contactData.phone) {
+                if (!this.validatePhoneNumber(contactData.phone)) {
+                    return {
+                        success: false,
+                        error: 'Invalid phone number format. Please use Turkish mobile number format (5XXXXXXXXX)',
+                        statusCode: 400,
+                    };
+                }
+
+                normalizedPhone = this.normalizePhoneNumber(contactData.phone);
+
+                // Check if phone already exists (exclude current user)
+                if (normalizedPhone !== existingUser.phone) {
+                    const phoneExists = await prisma.user.findFirst({
+                        where: {
+                            phone: normalizedPhone,
+                            id: { not: userId }
+                        }
+                    });
+
+                    if (phoneExists) {
+                        return {
+                            success: false,
+                            error: 'Phone number already exists',
+                            statusCode: 400,
+                        };
+                    }
+                }
+            }
+
+            // At least one field must be provided
+            if (!contactData.email && !contactData.phone && contactData.location === undefined) {
+                return {
+                    success: false,
+                    error: 'At least one field (email, phone, location) must be provided',
+                    statusCode: 400,
+                };
+            }
+
+            // Prepare update data
+            const updateData: any = {};
+            if (contactData.email) updateData.email = contactData.email;
+            if (normalizedPhone) updateData.phone = normalizedPhone;
+            if (contactData.location !== undefined) updateData.location = contactData.location;
+
+            // Update user contact info
+            const updatedUser = await prisma.user.update({
+                where: { id: userId },
+                data: updateData,
+                include: { documents: true }
+            });
+
+            // Remove password from response
+            const { password: _, ...userWithoutPassword } = updatedUser;
+
+            return {
+                success: true,
+                data: { user: userWithoutPassword },
+                statusCode: 200,
+            };
+        } catch (error) {
+            console.error('Error updating contact info:', error);
+            return {
+                success: false,
+                error: 'Failed to update contact info',
+                statusCode: 500,
             };
         }
     }

@@ -56,4 +56,10 @@ router.put('/subscription', authenticateToken, authController.subscriptionChange
 // PUT /api/auth/profile - Kullanıcı profil güncelleme (korumalı)
 router.put('/profile', authenticateToken, authController.changeUserProfile.bind(authController));
 
+// PUT /api/auth/contact-info - Kullanıcı iletişim bilgilerini güncelleme (korumalı)
+router.put('/contact-info', authenticateToken, authController.updateContactInfo.bind(authController));
+
+// DELETE /api/auth/profile-photo - Kullanıcı profil fotoğrafı silme (korumalı)
+router.delete('/profile-photo', authenticateToken, authController.deleteProfilePhoto.bind(authController));
+
 export { router as authRoutes };

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/authService';
-import { ApiResponse, RegisterDto, LoginDto, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto } from '../types';
+import { ApiResponse, RegisterDto, LoginDto, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, UpdateContactInfoDto } from '../types';
 import { metricsService } from '../services/metricsService';
 
 const authService = new AuthService();
@@ -22,6 +22,7 @@ export class AuthController {
                     success: false,
                     message: 'First name, last name, username, email, phone and password are required',
                     timestamp: new Date().toISOString(),
+                    statusCode: 400
                 };
                 res.status(400).json(response);
                 return;
@@ -32,6 +33,7 @@ export class AuthController {
                     success: false,
                     message: 'Role is required',
                     timestamp: new Date().toISOString(),
+                    statusCode: 400
                 };
                 res.status(400).json(response);
                 return;
@@ -43,6 +45,7 @@ export class AuthController {
                     success: false,
                     message: 'Password must be at least 6 characters long',
                     timestamp: new Date().toISOString(),
+                    statusCode: 400
                 };
                 res.status(400).json(response);
                 return;
@@ -62,6 +65,7 @@ export class AuthController {
                 message: result.success ? 'User registered successfully' : result.error || 'Failed to register user',
                 data: result.data,
                 timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
             };
 
             res.status(result.statusCode || 500).json(response);
@@ -71,6 +75,7 @@ export class AuthController {
                 message: 'Internal server error',
                 error: error instanceof Error ? error.message : 'Unknown error',
                 timestamp: new Date().toISOString(),
+                statusCode: 500
             };
 
             res.status(500).json(response);
@@ -110,8 +115,10 @@ export class AuthController {
                 message: result.success ? 'Login successful' : result.error || 'Failed to login',
                 data: result.data,
                 timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
             };
 
+            // Use the status code from the service result
             res.status(result.statusCode || 500).json(response);
         } catch (error) {
             const response: ApiResponse = {
@@ -119,6 +126,7 @@ export class AuthController {
                 message: 'Internal server error',
                 error: error instanceof Error ? error.message : 'Unknown error',
                 timestamp: new Date().toISOString(),
+                statusCode: 500
             };
 
             res.status(500).json(response);
@@ -134,6 +142,7 @@ export class AuthController {
                     success: false,
                     message: 'Token is required',
                     timestamp: new Date().toISOString(),
+                    statusCode: 400
                 };
                 res.status(400).json(response);
                 return;
@@ -146,6 +155,7 @@ export class AuthController {
                 message: result.success ? 'Token refreshed successfully' : result.error || 'Failed to refresh token',
                 data: result.data,
                 timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
             };
 
             res.status(result.statusCode || 500).json(response);
@@ -155,6 +165,7 @@ export class AuthController {
                 message: 'Internal server error',
                 error: error instanceof Error ? error.message : 'Unknown error',
                 timestamp: new Date().toISOString(),
+                statusCode: 500
             };
 
             res.status(500).json(response);
@@ -171,6 +182,7 @@ export class AuthController {
                     success: false,
                     message: 'User not found',
                     timestamp: new Date().toISOString(),
+                    statusCode: 404
                 };
                 res.status(404).json(response);
                 return;
@@ -181,6 +193,7 @@ export class AuthController {
                 message: 'Profile fetched successfully',
                 data: user,
                 timestamp: new Date().toISOString(),
+                statusCode: 200
             };
 
             res.status(200).json(response);
@@ -190,6 +203,7 @@ export class AuthController {
                 message: 'Internal server error',
                 error: error instanceof Error ? error.message : 'Unknown error',
                 timestamp: new Date().toISOString(),
+                statusCode: 500
             };
 
             res.status(500).json(response);
@@ -206,6 +220,7 @@ export class AuthController {
                     success: false,
                     message: 'User ID is required',
                     timestamp: new Date().toISOString(),
+                    statusCode: 400
                 };
                 res.status(400).json(response);
                 return;
@@ -216,6 +231,7 @@ export class AuthController {
                     success: false,
                     message: 'Status must be true or false',
                     timestamp: new Date().toISOString(),
+                    statusCode: 400
                 };
                 res.status(400).json(response);
                 return;
@@ -230,6 +246,7 @@ export class AuthController {
                     : result.error || 'Failed to change user status',
                 data: result.data,
                 timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
             };
 
             res.status(result.statusCode || 500).json(response);
@@ -239,6 +256,7 @@ export class AuthController {
                 message: 'Internal server error',
                 error: error instanceof Error ? error.message : 'Unknown error',
                 timestamp: new Date().toISOString(),
+                statusCode: 500
             };
 
             res.status(500).json(response);
@@ -255,6 +273,7 @@ export class AuthController {
                     success: false,
                     message: 'User ID is required',
                     timestamp: new Date().toISOString(),
+                    statusCode: 400
                 };
                 res.status(400).json(response);
                 return;
@@ -265,6 +284,7 @@ export class AuthController {
                     success: false,
                     message: 'Subscription must be true or false',
                     timestamp: new Date().toISOString(),
+                    statusCode: 400
                 };
                 res.status(400).json(response);
                 return;
@@ -279,6 +299,7 @@ export class AuthController {
                     : result.error || 'Failed to change user subscription',
                 data: result.data,
                 timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
             };
 
             res.status(result.statusCode || 500).json(response);
@@ -288,6 +309,7 @@ export class AuthController {
                 message: 'Internal server error',
                 error: error instanceof Error ? error.message : 'Unknown error',
                 timestamp: new Date().toISOString(),
+                statusCode: 500
             };
 
             res.status(500).json(response);
@@ -303,6 +325,7 @@ export class AuthController {
                     success: false,
                     message: 'User not authenticated',
                     timestamp: new Date().toISOString(),
+                    statusCode: 401
                 };
                 res.status(401).json(response);
                 return;
@@ -316,6 +339,7 @@ export class AuthController {
                     success: false,
                     message: 'At least one field (email, firstName, lastName, location) must be provided',
                     timestamp: new Date().toISOString(),
+                    statusCode: 400
                 };
                 res.status(400).json(response);
                 return;
@@ -329,6 +353,7 @@ export class AuthController {
                         success: false,
                         message: 'Invalid email format',
                         timestamp: new Date().toISOString(),
+                        statusCode: 400
                     };
                     res.status(400).json(response);
                     return;
@@ -344,6 +369,7 @@ export class AuthController {
                     : result.error || 'Failed to update profile',
                 data: result.data,
                 timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
             };
 
             res.status(result.statusCode || 500).json(response);
@@ -353,6 +379,7 @@ export class AuthController {
                 message: 'Internal server error',
                 error: error instanceof Error ? error.message : 'Unknown error',
                 timestamp: new Date().toISOString(),
+                statusCode: 500
             };
 
             res.status(500).json(response);
@@ -367,6 +394,7 @@ export class AuthController {
                     success: false,
                     message: 'User not authenticated',
                     timestamp: new Date().toISOString(),
+                    statusCode: 401
                 };
                 res.status(401).json(response);
                 return;
@@ -380,6 +408,7 @@ export class AuthController {
                     success: false,
                     message: 'Current password and new password are required',
                     timestamp: new Date().toISOString(),
+                    statusCode: 400
                 };
                 res.status(400).json(response);
                 return;
@@ -394,6 +423,7 @@ export class AuthController {
                     : result.error || 'Failed to change password',
                 data: result.data,
                 timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
             };
 
             res.status(result.statusCode || 500).json(response);
@@ -403,6 +433,102 @@ export class AuthController {
                 message: 'Internal server error',
                 error: error instanceof Error ? error.message : 'Unknown error',
                 timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+
+            res.status(500).json(response);
+        }
+    }
+
+    async deleteProfilePhoto(req: Request, res: Response): Promise<void> {
+        try {
+            const user = (req as any).user;
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const result = await authService.deleteProfilePhoto(user.id);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success
+                    ? 'Profile photo deleted successfully'
+                    : result.error || 'Failed to delete profile photo',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+
+            res.status(500).json(response);
+        }
+    }
+
+    async updateContactInfo(req: Request, res: Response): Promise<void> {
+        try {
+            // Get user ID from the authenticated user
+            const user = (req as any).user;
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const contactData: UpdateContactInfoDto = req.body;
+
+            // Validate at least one field is provided
+            if (!contactData.email && !contactData.phone && contactData.location === undefined) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'At least one field (email, phone, location) must be provided',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            const result = await authService.updateContactInfo(user.id, contactData);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success
+                    ? 'Contact information updated successfully'
+                    : result.error || 'Failed to update contact information',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
             };
 
             res.status(500).json(response);

@@ -27,6 +27,7 @@ model User {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
   documents     Document[]
+  fieldListing  FieldListing?
   status        Boolean   @default(true)
 
   @@map("users")
@@ -46,10 +47,121 @@ model Document {
   @@map("documents")
 }
 
+model FieldListing {
+  id               String          @id @default(cuid())
+  userId           String          @unique @map("user_id")
+  fieldName        String          @map("field_name")
+  fieldAddress     String          @map("field_address")
+  hourlyPrice      Decimal         @map("hourly_price") @db.Decimal(10, 2)
+  isIndoor         Boolean         @map("is_indoor")
+  surfaceType      SurfaceType     @map("surface_type")
+  phone            String
+  contactType      ContactType     @map("contact_type") @default(PHONE)
+  description      String?
+  isActive         Boolean         @default(true) @map("is_active")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedules        FieldSchedule[]
+  features         FieldFeature[]
+  photos           FieldPhoto[]
+  subFields        SubField[]
+
+  @@map("field_listings")
+}
+
+model SubField {
+  id            String       @id @default(cuid())
+  fieldListingId String      @map("field_listing_id")
+  name          String
+  surfaceType   SurfaceType  @map("surface_type")
+  hourlyPrice   Decimal      @map("hourly_price") @db.Decimal(10, 2)
+  isIndoor      Boolean      @map("is_indoor")
+  
+  fieldListing  FieldListing @relation(fields: [fieldListingId], references: [id], onDelete: Cascade)
+
+  @@map("sub_fields")
+}
+
+model FieldSchedule {
+  id             String       @id @default(cuid())
+  fieldListingId String       @map("field_listing_id")
+  dayOfWeek      DayOfWeek    @map("day_of_week")
+  startTime      String       @map("start_time") // Format: "HH:MM"
+  endTime        String       @map("end_time")   // Format: "HH:MM"
+  
+  fieldListing   FieldListing @relation(fields: [fieldListingId], references: [id], onDelete: Cascade)
+
+  @@map("field_schedules")
+}
+
+model FieldFeature {
+  id             String       @id @default(cuid())
+  fieldListingId String       @map("field_listing_id")
+  featureType    FeatureType  @map("feature_type")
+  
+  fieldListing   FieldListing @relation(fields: [fieldListingId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldListingId, featureType])
+  @@map("field_features")
+}
+
+model FieldPhoto {
+  id             String       @id @default(cuid())
+  fieldListingId String       @map("field_listing_id")
+  photoUrl       String       @map("photo_url")
+  photoOrder     Int          @map("photo_order")
+  
+  fieldListing   FieldListing @relation(fields: [fieldListingId], references: [id], onDelete: Cascade)
+
+  @@map("field_photos")
+}
+
 enum Role {
   USER
   GOALKEEPER
   REFEREE
   FOOTBALL_FIELD_OWNER
   ADMIN
+}
+
+enum SurfaceType {
+  GRASS          // Çim
+  ARTIFICIAL     // Suni Çim
+  CONCRETE       // Beton
+  CARPET         // Halı
+}
+
+enum ContactType {
+  PHONE
+  WHATSAPP
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum FeatureType {
+  // Teknik Özellikler
+  OPEN_24_7           // 7/24 Açık
+  ONLINE_RESERVATION  // Online Rezervasyon
+  FREE_WIFI           // Ücretsiz Wifi
+  SECURITY_CAMERA     // Güvenlik Kamerası
+  
+  // Olanaklar
+  CHANGING_ROOM       // Soyunma Odası
+  SHOWER              // Duş
+  TOILET              // Tuvalet
+  PARKING             // Otopark
+  CAFE                // Kafe
+  TRIBUNE             // Tribün
+  RENTAL_SHOES        // Kiralık Ayakkabı
+  RENTAL_GLOVES       // Kiralık Eldiven
 }

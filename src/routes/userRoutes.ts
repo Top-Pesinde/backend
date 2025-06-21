@@ -5,6 +5,9 @@ import { authenticateToken } from '../middleware/authMiddleware';
 const router = Router();
 const userController = new UserController();
 
+// GET /api/users/me - Get current user's complete information
+router.get('/me', authenticateToken, userController.getCurrentUser.bind(userController));
+
 // All user routes require authentication
 // Additional ADMIN role check is done in controller
 

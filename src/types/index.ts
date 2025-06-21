@@ -6,6 +6,7 @@ export interface ApiResponse<T = any> {
     data?: T;
     error?: string;
     timestamp: string;
+    statusCode?: number;
 }
 
 export interface ServiceResponse<T = any> {
@@ -34,6 +35,7 @@ export interface User {
     createdAt: Date;
     updatedAt: Date;
     documents?: Document[];
+    fieldListing?: FieldListing;
 }
 
 export interface Document {
@@ -110,6 +112,12 @@ export interface UpdateProfileDto {
     location?: string;
 }
 
+export interface UpdateContactInfoDto {
+    email?: string;
+    phone?: string;
+    location?: string;
+}
+
 export interface AuthResponse {
     user: Omit<User, 'password'>;
     accessToken: string;
@@ -148,7 +156,124 @@ export interface PaginatedResponse<T> {
         totalPages: number;
     };
 }
+
 export interface ChangePasswordDto {
     currentPassword: string;
     newPassword: string;
+}
+
+// Field Listing Types
+export type SurfaceType = 'GRASS' | 'ARTIFICIAL' | 'CONCRETE' | 'CARPET';
+export type ContactType = 'PHONE' | 'WHATSAPP';
+export type DayOfWeek = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+export type FeatureType =
+    // Teknik Özellikler
+    'OPEN_24_7' | 'ONLINE_RESERVATION' | 'FREE_WIFI' | 'SECURITY_CAMERA' |
+    // Olanaklar
+    'CHANGING_ROOM' | 'SHOWER' | 'TOILET' | 'PARKING' | 'CAFE' | 'TRIBUNE' | 'RENTAL_SHOES' | 'RENTAL_GLOVES';
+
+export interface FieldSchedule {
+    id: string;
+    fieldListingId: string;
+    dayOfWeek: DayOfWeek;
+    startTime: string; // Format: "HH:MM"
+    endTime: string;   // Format: "HH:MM"
+}
+
+export interface FieldFeature {
+    id: string;
+    fieldListingId: string;
+    featureType: FeatureType;
+}
+
+export interface FieldPhoto {
+    id: string;
+    fieldListingId: string;
+    photoUrl: string;
+    photoOrder: number;
+}
+
+export interface SubField {
+    id: string;
+    fieldListingId: string;
+    name: string;
+    surfaceType: SurfaceType;
+    hourlyPrice: number;
+    isIndoor: boolean;
+}
+
+export interface FieldListing {
+    id: string;
+    userId: string;
+    fieldName: string;
+    fieldAddress: string;
+    hourlyPrice: number;
+    isIndoor: boolean;
+    surfaceType: SurfaceType;
+    phone: string;
+    contactType: ContactType;
+    description?: string;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    user?: User;
+    schedules: FieldSchedule[];
+    features: FieldFeature[];
+    photos: FieldPhoto[];
+    subFields: SubField[];
+}
+
+export interface FieldScheduleDto {
+    dayOfWeek: DayOfWeek;
+    startTime: string; // Format: "HH:MM"
+    endTime: string;   // Format: "HH:MM"
+}
+
+export interface SubFieldDto {
+    name: string;
+    surfaceType: SurfaceType;
+    hourlyPrice: number;
+    isIndoor: boolean;
+}
+
+export interface CreateFieldListingDto {
+    fieldName: string;
+    fieldAddress: string;
+    hourlyPrice: number;
+    isIndoor: boolean;
+    surfaceType: SurfaceType;
+    phone: string;
+    contactType: ContactType;
+    description?: string;
+    schedules: FieldScheduleDto[];
+    features: FeatureType[];
+    subFields?: SubFieldDto[];
+    photos?: any[]; // Multer file objects
+}
+
+export interface UpdateFieldListingDto {
+    fieldName?: string;
+    fieldAddress?: string;
+    hourlyPrice?: number;
+    isIndoor?: boolean;
+    surfaceType?: SurfaceType;
+    phone?: string;
+    contactType?: ContactType;
+    description?: string;
+    schedules?: FieldScheduleDto[];
+    features?: FeatureType[];
+    subFields?: SubFieldDto[];
+    photos?: any[]; // Multer file objects
+}
+
+export interface FieldListingFilterDto {
+    surfaceType?: SurfaceType;
+    isIndoor?: boolean;
+    minPrice?: number;
+    maxPrice?: number;
+    features?: FeatureType[];
+    dayOfWeek?: DayOfWeek;
+    startTime?: string;
+    endTime?: string;
+    search?: string; // For field name or address search
 }
