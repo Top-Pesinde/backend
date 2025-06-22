@@ -176,8 +176,9 @@ export interface FieldSchedule {
     id: string;
     fieldListingId: string;
     dayOfWeek: DayOfWeek;
-    startTime: string; // Format: "HH:MM"
-    endTime: string;   // Format: "HH:MM"
+    startTime?: string | null; // Format: "HH:MM" - nullable for closed days
+    endTime?: string | null;   // Format: "HH:MM" - nullable for closed days
+    isOpen: boolean;           // false means closed/holiday
 }
 
 export interface FieldFeature {
@@ -225,8 +226,9 @@ export interface FieldListing {
 
 export interface FieldScheduleDto {
     dayOfWeek: DayOfWeek;
-    startTime: string; // Format: "HH:MM"
-    endTime: string;   // Format: "HH:MM"
+    startTime?: string; // Format: "HH:MM" - optional for closed days
+    endTime?: string;   // Format: "HH:MM" - optional for closed days
+    isOpen?: boolean;   // false means closed/holiday, default true
 }
 
 export interface SubFieldDto {
@@ -264,6 +266,7 @@ export interface UpdateFieldListingDto {
     features?: FeatureType[];
     subFields?: SubFieldDto[];
     photos?: any[]; // Multer file objects
+    isActive?: boolean;
 }
 
 export interface FieldListingFilterDto {

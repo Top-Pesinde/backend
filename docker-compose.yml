@@ -1,6 +1,28 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: express-api-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: express_api_db
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d express_api_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: express-api-pgadmin
@@ -15,6 +37,9 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     networks:
       - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
   # Redis (cache için isteğe bağlı)
   redis:
     image: redis:7-alpine
@@ -101,6 +126,8 @@ services:
     networks:
       - app-network
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_started
       minio:
@@ -151,6 +178,8 @@ services:
       - prometheus
 
 volumes:
+  postgres_data:
+    driver: local
   pgadmin_data:
     driver: local
   redis_data:

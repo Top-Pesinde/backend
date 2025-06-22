@@ -36,7 +36,10 @@ router.get('/', (req, res) => {
             },
             uploads: {
                 profilePhoto: 'POST /api/v1/uploads/profile-photo',
+                updateProfilePhoto: 'PUT /api/v1/uploads/profile-photo',
                 documents: 'POST /api/v1/uploads/documents',
+                fieldPhotos: 'POST /api/v1/uploads/field-photos (FOOTBALL_FIELD_OWNER only)',
+                updateFieldPhotos: 'PUT /api/v1/uploads/field-photos (FOOTBALL_FIELD_OWNER only)',
                 deleteFile: 'DELETE /api/v1/uploads/:bucketType/:fileName',
                 getFileUrl: 'GET /api/v1/uploads/:bucketType/:fileName/url',
                 listFiles: 'GET /api/v1/uploads/:bucketType/list',
@@ -69,7 +72,13 @@ router.get('/', (req, res) => {
         roles: ['USER', 'GOALKEEPER', 'REFEREE', 'FOOTBALL_FIELD_OWNER', 'ADMIN'],
         storage: {
             minioConsole: 'http://localhost:9001',
-            buckets: ['profile-photos', 'documents', 'general-uploads', 'field-photos'],
+            buckets: ['profile-photos', 'documents', 'general-uploads', 'fields'],
+            bucketUrls: {
+                profilePhotos: 'http://localhost:9000/profile-photos/',
+                documents: 'http://localhost:9000/documents/',
+                fieldPhotos: 'http://localhost:9000/fields/',
+                generalUploads: 'http://localhost:9000/general-uploads/'
+            }
         },
         fieldListingFeatures: {
             technical: ['OPEN_24_7', 'ONLINE_RESERVATION', 'FREE_WIFI', 'SECURITY_CAMERA'],

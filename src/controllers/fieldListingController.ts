@@ -12,8 +12,10 @@ import {
     FeatureType
 } from '../types';
 import { fieldListingService } from '../services/fieldListingService';
+import { MinioService } from '../services/minioService';
 
 class FieldListingController {
+    private minioService = new MinioService();
 
     // Halısaha ilanı oluştur
     async createFieldListing(req: CustomRequest, res: Response): Promise<void> {
@@ -56,7 +58,22 @@ class FieldListingController {
                 return;
             }
 
-            if (!schedules || !Array.isArray(schedules) || schedules.length === 0) {
+            // schedules'ı parse et
+            let parsedSchedules;
+            try {
+                parsedSchedules = Array.isArray(schedules) ? schedules : JSON.parse(schedules);
+            } catch (error) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Çalışma saatleri formatı geçersiz',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            if (!parsedSchedules || !Array.isArray(parsedSchedules) || parsedSchedules.length === 0) {
                 const response: ApiResponse = {
                     success: false,
                     message: 'En az bir çalışma saati tanımlanmalıdır',
@@ -67,7 +84,22 @@ class FieldListingController {
                 return;
             }
 
-            if (!features || !Array.isArray(features)) {
+            // features'ı parse et
+            let parsedFeatures;
+            try {
+                parsedFeatures = Array.isArray(features) ? features : JSON.parse(features);
+            } catch (error) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Özellikler formatı geçersiz',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            if (!parsedFeatures || !Array.isArray(parsedFeatures)) {
                 const response: ApiResponse = {
                     success: false,
                     message: 'Özellikler listesi gereklidir',
@@ -79,8 +111,8 @@ class FieldListingController {
             }
 
             // Fotoğrafları kontrol et (geçici olarak zorunlu değil)
-            const photos = req.files ? (req.files as Express.Multer.File[]).map(file => file.filename) : [];
-            if (photos.length > 3) {
+            const photoFiles = req.files as Express.Multer.File[] || [];
+            if (photoFiles.length > 3) {
                 const response: ApiResponse = {
                     success: false,
                     message: 'Maksimum 3 fotoğraf yükleyebilirsiniz',
@@ -91,6 +123,7 @@ class FieldListingController {
                 return;
             }
 
+            // Önce halısaha ilanını oluştur
             const createData: CreateFieldListingDto = {
                 fieldName,
                 fieldAddress,
@@ -100,13 +133,31 @@ class FieldListingController {
                 phone,
                 contactType: contactType as ContactType,
                 description,
-                schedules: Array.isArray(schedules) ? schedules : JSON.parse(schedules),
-                features: Array.isArray(features) ? features : JSON.parse(features),
+                schedules: parsedSchedules,
+                features: parsedFeatures,
                 subFields: subFields ? (Array.isArray(subFields) ? subFields : JSON.parse(subFields)) : undefined,
-                photos
+                photos: [] // Başlangıçta boş, sonra güncellenecek
             };
 
             const result = await fieldListingService.createFieldListing(userId, createData);
+
+            // Eğer halısaha oluşturuldu ve fotoğraflar varsa, fotoğrafları MinIO'ya yükle
+            if (result.success && photoFiles.length > 0) {
+                const uploadedPhotos: string[] = [];
+                const minioService = new MinioService();
+
+                for (const file of photoFiles) {
+                    const uploadResult = await minioService.uploadFieldPhoto(file, result.data!.id);
+                    if (uploadResult.success) {
+                        uploadedPhotos.push(uploadResult.data!.url);
+                    }
+                }
+
+                // Fotoğraf URL'lerini veritabanına kaydet
+                if (uploadedPhotos.length > 0) {
+                    await fieldListingService.updateFieldPhotos(result.data!.id, uploadedPhotos);
+                }
+            }
 
             if (!result.success) {
                 const response: ApiResponse = {
@@ -230,7 +281,55 @@ class FieldListingController {
         }
     }
 
-    // Kullanıcının kendi ilanını getir
+    // Kullanıcının tüm halısaha ilanlarını getir
+    async getUserFieldListings(req: CustomRequest, res: Response): Promise<void> {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Kullanıcı kimliği bulunamadı',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const result = await fieldListingService.getUserFieldListings(userId);
+
+            if (!result.success) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: result.error || 'Halısaha ilanları getirilemedi',
+                    timestamp: new Date().toISOString(),
+                    statusCode: result.statusCode || 500
+                };
+                res.status(result.statusCode || 500).json(response);
+                return;
+            }
+
+            const response: ApiResponse = {
+                success: true,
+                message: result.data && result.data.length > 0 ? 'Halısaha ilanları başarıyla getirildi' : 'Henüz halısaha ilanınız bulunmamaktadır',
+                data: result.data,
+                timestamp: new Date().toISOString()
+            };
+            res.status(200).json(response);
+
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Halısaha ilanları getirme sırasında hata oluştu',
+                error: error instanceof Error ? error.message : 'Bilinmeyen hata',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+            res.status(500).json(response);
+        }
+    }
+
+    // Kullanıcının kendi ilanını getir (deprecated)
     async getUserFieldListing(req: CustomRequest, res: Response): Promise<void> {
         try {
             const userId = req.user?.id;

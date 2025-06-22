@@ -12,16 +12,19 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 export class FieldListingService {
 
-    // Kullanıcının halısaha ilanı var mı kontrol et
-    async hasExistingListing(userId: string): Promise<ServiceResponse<boolean>> {
+    // Kullanıcının aktif halısaha ilanı var mı kontrol et
+    async hasActiveListing(userId: string): Promise<ServiceResponse<boolean>> {
         try {
-            const existingListing = await prisma.fieldListing.findUnique({
-                where: { userId }
+            const activeListing = await prisma.fieldListing.findFirst({
+                where: {
+                    userId,
+                    isActive: true
+                }
             });
 
             return {
                 success: true,
-                data: !!existingListing
+                data: !!activeListing
             };
         } catch (error) {
             return {
@@ -34,31 +37,31 @@ export class FieldListingService {
     // Halısaha ilanı oluştur
     async createFieldListing(userId: string, data: CreateFieldListingDto): Promise<ServiceResponse<FieldListing>> {
         try {
-            // Kullanıcının zaten bir ilanı var mı kontrol et
-            const hasListing = await this.hasExistingListing(userId);
-            if (!hasListing.success) {
+            // Kullanıcının zaten aktif bir ilanı var mı kontrol et
+            const hasActiveListing = await this.hasActiveListing(userId);
+            if (!hasActiveListing.success) {
                 return {
                     success: false,
-                    error: hasListing.error
+                    error: hasActiveListing.error
                 };
             }
 
-            if (hasListing.data) {
+            if (hasActiveListing.data) {
                 return {
                     success: false,
-                    error: 'Kullanıcı zaten bir halısaha ilanına sahip. Sadece bir ilan oluşturabilirsiniz.',
+                    error: 'Zaten aktif bir halısaha ilanınız bulunmaktadır. Yeni ilan oluşturmak için mevcut ilanınızı deaktif edin.',
                     statusCode: 400
                 };
             }
 
-            // Fotoğraf sayısı kontrolü
-            if (data.photos && (data.photos.length < 2 || data.photos.length > 3)) {
-                return {
-                    success: false,
-                    error: 'Minimum 2, maksimum 3 fotoğraf yükleyebilirsiniz.',
-                    statusCode: 400
-                };
-            }
+            // Fotoğraf sayısı kontrolü - şimdilik esnek yapalım çünkü fotoğraflar sonra yüklenecek
+            // if (data.photos && (data.photos.length < 2 || data.photos.length > 3)) {
+            //     return {
+            //         success: false,
+            //         error: 'Minimum 2, maksimum 3 fotoğraf yükleyebilirsiniz.',
+            //         statusCode: 400
+            //     };
+            // }
 
             const result = await prisma.$transaction(async (tx) => {
                 // Ana ilan oluştur
@@ -82,8 +85,9 @@ export class FieldListingService {
                         data: data.schedules.map(schedule => ({
                             fieldListingId: fieldListing.id,
                             dayOfWeek: schedule.dayOfWeek,
-                            startTime: schedule.startTime,
-                            endTime: schedule.endTime
+                            startTime: schedule.startTime || null,
+                            endTime: schedule.endTime || null,
+                            isOpen: schedule.isOpen !== false // default true
                         }))
                     });
                 }
@@ -141,11 +145,41 @@ export class FieldListingService {
         }
     }
 
+    // Halısaha fotoğraflarını güncelle
+    async updateFieldPhotos(fieldListingId: string, photoUrls: string[]): Promise<ServiceResponse<void>> {
+        try {
+            // Mevcut fotoğrafları sil
+            await prisma.fieldPhoto.deleteMany({
+                where: { fieldListingId }
+            });
+
+            // Yeni fotoğrafları ekle
+            if (photoUrls.length > 0) {
+                await prisma.fieldPhoto.createMany({
+                    data: photoUrls.map((photoUrl, index) => ({
+                        fieldListingId,
+                        photoUrl,
+                        photoOrder: index + 1
+                    }))
+                });
+            }
+
+            return {
+                success: true
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Halısaha fotoğrafları güncellenirken hata oluştu'
+            };
+        }
+    }
+
     // Halısaha ilanını güncelle
     async updateFieldListing(userId: string, data: UpdateFieldListingDto): Promise<ServiceResponse<FieldListing>> {
         try {
             // Kullanıcının ilanını bul
-            const existingListing = await prisma.fieldListing.findUnique({
+            const existingListing = await prisma.fieldListing.findFirst({
                 where: { userId }
             });
 
@@ -194,8 +228,9 @@ export class FieldListingService {
                             data: data.schedules.map(schedule => ({
                                 fieldListingId: existingListing.id,
                                 dayOfWeek: schedule.dayOfWeek,
-                                startTime: schedule.startTime,
-                                endTime: schedule.endTime
+                                startTime: schedule.startTime || null,
+                                endTime: schedule.endTime || null,
+                                isOpen: schedule.isOpen !== false // default true
                             }))
                         });
                     }
@@ -270,10 +305,65 @@ export class FieldListingService {
         }
     }
 
-    // Kullanıcının kendi ilanını getir
+    // Kullanıcının tüm halısaha ilanlarını getir (aktif + deaktif)
+    async getUserFieldListings(userId: string): Promise<ServiceResponse<FieldListing[]>> {
+        try {
+            const fieldListings = await prisma.fieldListing.findMany({
+                where: { userId },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                            email: true,
+                            phone: true,
+                            location: true,
+                            bio: true,
+                            profilePhoto: true,
+                            role: true,
+                            createdAt: true,
+                            updatedAt: true
+                        }
+                    },
+                    schedules: true,
+                    features: true,
+                    photos: {
+                        orderBy: { photoOrder: 'asc' }
+                    },
+                    subFields: true
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            const formattedListings = fieldListings.map((fieldListing: any) => ({
+                ...fieldListing,
+                description: fieldListing.description || undefined,
+                hourlyPrice: Number(fieldListing.hourlyPrice),
+                subFields: fieldListing.subFields.map((subField: any) => ({
+                    ...subField,
+                    hourlyPrice: Number(subField.hourlyPrice)
+                }))
+            }));
+
+            return {
+                success: true,
+                data: formattedListings
+            };
+
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Halısaha ilanları getirme başarısız'
+            };
+        }
+    }
+
+    // Kullanıcının kendi ilanını getir (deprecated - getUserFieldListings kullanın)
     async getUserFieldListing(userId: string): Promise<ServiceResponse<FieldListing | null>> {
         try {
-            const fieldListing = await prisma.fieldListing.findUnique({
+            const fieldListing = await prisma.fieldListing.findFirst({
                 where: { userId },
                 include: {
                     user: {
@@ -518,7 +608,7 @@ export class FieldListingService {
     // Halısaha ilanını deaktif et
     async deactivateFieldListing(userId: string): Promise<ServiceResponse<void>> {
         try {
-            const existingListing = await prisma.fieldListing.findUnique({
+            const existingListing = await prisma.fieldListing.findFirst({
                 where: { userId }
             });
 
@@ -550,7 +640,7 @@ export class FieldListingService {
     // Halısaha ilanını aktif et
     async activateFieldListing(userId: string): Promise<ServiceResponse<void>> {
         try {
-            const existingListing = await prisma.fieldListing.findUnique({
+            const existingListing = await prisma.fieldListing.findFirst({
                 where: { userId }
             });
 
@@ -582,7 +672,7 @@ export class FieldListingService {
     // Halısaha ilanını sil
     async deleteFieldListing(userId: string): Promise<ServiceResponse<void>> {
         try {
-            const existingListing = await prisma.fieldListing.findUnique({
+            const existingListing = await prisma.fieldListing.findFirst({
                 where: { userId }
             });
 

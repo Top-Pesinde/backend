@@ -47,6 +47,20 @@ router.post('/documents',
     uploadController.uploadDocuments.bind(uploadController)
 );
 
+// POST /api/uploads/field-photos - Upload field photos (korumalı)
+router.post('/field-photos',
+    authenticateToken,
+    upload.array('photos', 3),
+    uploadController.uploadFieldPhotos.bind(uploadController)
+);
+
+// PUT /api/uploads/field-photos - Update field photos (korumalı)
+router.put('/field-photos',
+    authenticateToken,
+    upload.array('photos', 3),
+    uploadController.updateFieldPhotos.bind(uploadController)
+);
+
 // DELETE /api/uploads/:bucketType/:fileName - Delete file (korumalı)
 router.delete('/:bucketType/:fileName',
     authenticateToken,

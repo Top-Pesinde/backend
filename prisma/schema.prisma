@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://postgres:postgres123@localhost:5432/express_api_db?schema=public"
 }
 
 model User {
@@ -27,7 +27,7 @@ model User {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
   documents     Document[]
-  fieldListing  FieldListing?
+  fieldListings FieldListing[]
   status        Boolean   @default(true)
 
   @@map("users")
@@ -49,7 +49,7 @@ model Document {
 
 model FieldListing {
   id               String          @id @default(cuid())
-  userId           String          @unique @map("user_id")
+  userId           String          @map("user_id")
   fieldName        String          @map("field_name")
   fieldAddress     String          @map("field_address")
   hourlyPrice      Decimal         @map("hourly_price") @db.Decimal(10, 2)
@@ -88,8 +88,9 @@ model FieldSchedule {
   id             String       @id @default(cuid())
   fieldListingId String       @map("field_listing_id")
   dayOfWeek      DayOfWeek    @map("day_of_week")
-  startTime      String       @map("start_time") // Format: "HH:MM"
-  endTime        String       @map("end_time")   // Format: "HH:MM"
+  startTime      String?      @map("start_time") // Format: "HH:MM" - nullable for closed days
+  endTime        String?      @map("end_time")   // Format: "HH:MM" - nullable for closed days
+  isOpen         Boolean      @default(true)     // false means closed/holiday
   
   fieldListing   FieldListing @relation(fields: [fieldListingId], references: [id], onDelete: Cascade)
 

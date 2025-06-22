@@ -6,6 +6,7 @@ export class MinioService {
     private readonly PROFILE_PHOTOS_BUCKET = 'profile-photos';
     private readonly DOCUMENTS_BUCKET = 'documents';
     private readonly GENERAL_UPLOADS_BUCKET = 'general-uploads';
+    private readonly FIELDS_BUCKET = 'fields';
 
     constructor() {
         this.minioClient = new Minio.Client({
@@ -24,7 +25,8 @@ export class MinioService {
             const buckets = [
                 this.PROFILE_PHOTOS_BUCKET,
                 this.DOCUMENTS_BUCKET,
-                this.GENERAL_UPLOADS_BUCKET
+                this.GENERAL_UPLOADS_BUCKET,
+                this.FIELDS_BUCKET
             ];
 
             for (const bucket of buckets) {
@@ -34,8 +36,8 @@ export class MinioService {
                     console.log(`✅ Bucket '${bucket}' created successfully`);
                 }
 
-                // Set public policy for profile photos and documents (her seferinde kontrol et)
-                if (bucket === this.PROFILE_PHOTOS_BUCKET || bucket === this.DOCUMENTS_BUCKET) {
+                // Set public policy for profile photos, documents and fields (her seferinde kontrol et)
+                if (bucket === this.PROFILE_PHOTOS_BUCKET || bucket === this.DOCUMENTS_BUCKET || bucket === this.FIELDS_BUCKET) {
                     try {
                         const policy = {
                             Version: '2012-10-17',
@@ -137,10 +139,50 @@ export class MinioService {
         }
     }
 
+    async uploadFieldPhoto(
+        file: Express.Multer.File,
+        fieldId: string
+    ): Promise<ServiceResponse<{ url: string; fileName: string }>> {
+        try {
+            const fileName = `field-${fieldId}-${Date.now()}.${file.originalname.split('.').pop()}`;
+
+            await this.minioClient.putObject(
+                this.FIELDS_BUCKET,
+                fileName,
+                file.buffer,
+                file.size,
+                {
+                    'Content-Type': file.mimetype,
+                    'Cache-Control': 'max-age=31536000', // 1 year
+                }
+            );
+
+            // Generate public URL for field photo
+            const baseUrl = process.env.MINIO_PUBLIC_URL || 'http://localhost:9000';
+            const url = `${baseUrl}/${this.FIELDS_BUCKET}/${fileName}`;
+
+            console.log(`✅ Field photo uploaded: ${fileName} -> ${url}`);
+
+            return {
+                success: true,
+                data: { url, fileName },
+                statusCode: 200,
+            };
+        } catch (error) {
+            console.error('Error uploading field photo:', error);
+            return {
+                success: false,
+                error: 'Failed to upload field photo',
+                statusCode: 500,
+            };
+        }
+    }
+
     async uploadFile(
         file: Express.Multer.File,
-        bucketType: 'profile' | 'document' | 'general',
-        userId?: string
+        bucketType: 'profile' | 'document' | 'general' | 'field',
+        userId?: string,
+        fieldId?: string
     ): Promise<ServiceResponse<{ url: string; fileName: string }>> {
         try {
             let bucket: string;
@@ -154,6 +196,10 @@ export class MinioService {
                 case 'document':
                     bucket = this.DOCUMENTS_BUCKET;
                     fileName = `doc-${userId}-${Date.now()}-${file.originalname}`;
+                    break;
+                case 'field':
+                    bucket = this.FIELDS_BUCKET;
+                    fileName = `field-${fieldId}-${Date.now()}.${file.originalname.split('.').pop()}`;
                     break;
                 default:
                     bucket = this.GENERAL_UPLOADS_BUCKET;
@@ -263,12 +309,14 @@ export class MinioService {
     }
 
     // Utility method to get bucket name by type
-    getBucketName(type: 'profile' | 'document' | 'general'): string {
+    getBucketName(type: 'profile' | 'document' | 'general' | 'field'): string {
         switch (type) {
             case 'profile':
                 return this.PROFILE_PHOTOS_BUCKET;
             case 'document':
                 return this.DOCUMENTS_BUCKET;
+            case 'field':
+                return this.FIELDS_BUCKET;
             default:
                 return this.GENERAL_UPLOADS_BUCKET;
         }

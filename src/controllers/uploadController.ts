@@ -415,4 +415,228 @@ export class UploadController {
             res.status(500).json(response);
         }
     }
+
+    async uploadFieldPhotos(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const user = req.user;
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            // Check if user is FOOTBALL_FIELD_OWNER
+            if (user.role !== 'FOOTBALL_FIELD_OWNER') {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Only football field owners can upload field photos',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(403).json(response);
+                return;
+            }
+
+            const files = req.files as Express.Multer.File[];
+            if (!files || files.length === 0) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'No photos uploaded',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            if (files.length < 2 || files.length > 3) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Please upload 2-3 field photos',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Validate file types (only images)
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            for (const file of files) {
+                if (!allowedTypes.includes(file.mimetype)) {
+                    const response: ApiResponse = {
+                        success: false,
+                        message: `Invalid file type: ${file.originalname}. Only image files are allowed`,
+                        timestamp: new Date().toISOString(),
+                    };
+                    res.status(400).json(response);
+                    return;
+                }
+            }
+
+            // For now, we'll use a temporary field ID. In real use, this should come from field listing
+            const fieldId = req.body.fieldId || `temp-${user.id}-${Date.now()}`;
+
+            // Upload all photos
+            const uploadPromises = files.map(file =>
+                minioService.uploadFile(file, 'field', user.id, fieldId)
+            );
+
+            const results = await Promise.all(uploadPromises);
+            const successfulUploads = results.filter(result => result.success);
+            const failedUploads = results.filter(result => !result.success);
+
+            if (failedUploads.length > 0) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: `${failedUploads.length} photos failed to upload`,
+                    data: {
+                        successful: successfulUploads.map(r => r.data),
+                        failed: failedUploads.map(r => r.error),
+                    },
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(500).json(response);
+                return;
+            }
+
+            const response: ApiResponse = {
+                success: true,
+                message: `${successfulUploads.length} field photos uploaded successfully`,
+                data: {
+                    fieldId,
+                    photos: successfulUploads.map(r => r.data)
+                },
+                timestamp: new Date().toISOString(),
+            };
+
+            res.status(200).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+            };
+
+            res.status(500).json(response);
+        }
+    }
+
+    async updateFieldPhotos(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const user = req.user;
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            // Check if user is FOOTBALL_FIELD_OWNER
+            if (user.role !== 'FOOTBALL_FIELD_OWNER') {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Only football field owners can update field photos',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(403).json(response);
+                return;
+            }
+
+            const files = req.files as Express.Multer.File[];
+            if (!files || files.length === 0) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'No photos uploaded',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            if (files.length < 2 || files.length > 3) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Please upload 2-3 field photos',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Validate file types (only images)
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            for (const file of files) {
+                if (!allowedTypes.includes(file.mimetype)) {
+                    const response: ApiResponse = {
+                        success: false,
+                        message: `Invalid file type: ${file.originalname}. Only image files are allowed`,
+                        timestamp: new Date().toISOString(),
+                    };
+                    res.status(400).json(response);
+                    return;
+                }
+            }
+
+            const fieldId = req.body.fieldId;
+            if (!fieldId) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Field ID is required',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Upload all photos
+            const uploadPromises = files.map(file =>
+                minioService.uploadFile(file, 'field', user.id, fieldId)
+            );
+
+            const results = await Promise.all(uploadPromises);
+            const successfulUploads = results.filter(result => result.success);
+            const failedUploads = results.filter(result => !result.success);
+
+            if (failedUploads.length > 0) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: `${failedUploads.length} photos failed to upload`,
+                    data: {
+                        successful: successfulUploads.map(r => r.data),
+                        failed: failedUploads.map(r => r.error),
+                    },
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(500).json(response);
+                return;
+            }
+
+            const response: ApiResponse = {
+                success: true,
+                message: `${successfulUploads.length} field photos updated successfully`,
+                data: {
+                    fieldId,
+                    photos: successfulUploads.map(r => r.data)
+                },
+                timestamp: new Date().toISOString(),
+            };
+
+            res.status(200).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+            };
+
+            res.status(500).json(response);
+        }
+    }
 } 

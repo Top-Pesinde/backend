@@ -3,24 +3,11 @@ import { fieldListingController } from '../controllers/fieldListingController';
 import { authenticateToken } from '../middleware/authMiddleware';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
 
 const router = Router();
 
-// Multer configuration for field photos
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const uploadDir = 'uploads/field-photos';
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'field-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
+// Multer configuration for field photos (memory storage for MinIO)
+const storage = multer.memoryStorage();
 
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     // Allow only image files
@@ -93,8 +80,15 @@ router.post(
 );
 
 /**
+ * @route GET /api/field-listings/my/listings
+ * @desc Get current user's all field listings (active + inactive)
+ * @access Private
+ */
+router.get('/my/listings', authenticateToken, fieldListingController.getUserFieldListings);
+
+/**
  * @route GET /api/field-listings/my/listing
- * @desc Get current user's field listing
+ * @desc Get current user's field listing (deprecated - use /my/listings)
  * @access Private
  */
 router.get('/my/listing', authenticateToken, fieldListingController.getUserFieldListing);
