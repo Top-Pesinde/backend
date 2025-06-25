@@ -699,6 +699,37 @@ export class FieldListingService {
             };
         }
     }
+
+    // ID'ye göre halısaha ilanını sil
+    async deleteFieldListingById(fieldId: string): Promise<ServiceResponse<void>> {
+        try {
+            const existingListing = await prisma.fieldListing.findUnique({
+                where: { id: fieldId }
+            });
+
+            if (!existingListing) {
+                return {
+                    success: false,
+                    error: 'Halısaha ilanı bulunamadı',
+                    statusCode: 404
+                };
+            }
+
+            await prisma.fieldListing.delete({
+                where: { id: fieldId }
+            });
+
+            return {
+                success: true
+            };
+
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Halısaha ilanı silme başarısız'
+            };
+        }
+    }
 }
 
 export const fieldListingService = new FieldListingService(); 

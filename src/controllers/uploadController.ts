@@ -6,6 +6,7 @@ const minioService = new MinioService();
 
 interface AuthenticatedRequest extends Request {
     user?: any;
+    body: any;
 }
 
 export class UploadController {
@@ -475,10 +476,10 @@ export class UploadController {
                 }
             }
 
-            // For now, we'll use a temporary field ID. In real use, this should come from field listing
+            // Get fieldId from body or use temp ID
             const fieldId = req.body.fieldId || `temp-${user.id}-${Date.now()}`;
 
-            // Upload all photos
+            // Upload all photos to MinIO
             const uploadPromises = files.map(file =>
                 minioService.uploadFile(file, 'field', user.id, fieldId)
             );
@@ -499,6 +500,39 @@ export class UploadController {
                 };
                 res.status(500).json(response);
                 return;
+            }
+
+            // If fieldId is not temp (real field exists), save to database
+            if (!fieldId.startsWith('temp-')) {
+                try {
+                    const { prisma } = await import('../lib/prisma');
+
+                    // Check if field belongs to user
+                    const fieldListing = await prisma.fieldListing.findFirst({
+                        where: {
+                            id: fieldId,
+                            userId: user.id
+                        }
+                    });
+
+                    if (fieldListing) {
+                        // Save photos to database
+                        const photoData = successfulUploads.map((result, index) => ({
+                            id: `photo${index + 1}_${fieldId}`,
+                            fieldListingId: fieldId,
+                            photoUrl: result.data!.url,
+                            photoOrder: index + 1
+                        }));
+
+                        await prisma.fieldPhoto.createMany({
+                            data: photoData,
+                            skipDuplicates: true
+                        });
+                    }
+                } catch (dbError) {
+                    console.error('Database save error (continuing):', dbError);
+                    // Continue even if database save fails
+                }
             }
 
             const response: ApiResponse = {
@@ -594,7 +628,52 @@ export class UploadController {
                 return;
             }
 
-            // Upload all photos
+            // Import prisma for database operations
+            const { prisma } = await import('../lib/prisma');
+
+            // Check if field belongs to user
+            const fieldListing = await prisma.fieldListing.findFirst({
+                where: {
+                    id: fieldId,
+                    userId: user.id
+                }
+            });
+
+            if (!fieldListing) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Field not found or you do not have permission to update it',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(404).json(response);
+                return;
+            }
+
+            // Delete existing photos from database and MinIO
+            const existingPhotos = await prisma.fieldPhoto.findMany({
+                where: { fieldListingId: fieldId }
+            });
+
+            // Delete old photos from MinIO
+            for (const photo of existingPhotos) {
+                try {
+                    const fileName = photo.photoUrl.split('/').pop();
+                    if (fileName) {
+                        const bucketName = minioService.getBucketName('field');
+                        await minioService.deleteFile(bucketName, fileName);
+                    }
+                } catch (deleteError) {
+                    console.error('Error deleting old photo from MinIO:', deleteError);
+                    // Continue even if deletion fails
+                }
+            }
+
+            // Delete old photos from database
+            await prisma.fieldPhoto.deleteMany({
+                where: { fieldListingId: fieldId }
+            });
+
+            // Upload new photos to MinIO
             const uploadPromises = files.map(file =>
                 minioService.uploadFile(file, 'field', user.id, fieldId)
             );
@@ -616,6 +695,18 @@ export class UploadController {
                 res.status(500).json(response);
                 return;
             }
+
+            // Save new photos to database
+            const photoData = successfulUploads.map((result, index) => ({
+                id: `photo${index + 1}_${fieldId}_${Date.now()}`,
+                fieldListingId: fieldId,
+                photoUrl: result.data!.url,
+                photoOrder: index + 1
+            }));
+
+            await prisma.fieldPhoto.createMany({
+                data: photoData
+            });
 
             const response: ApiResponse = {
                 success: true,

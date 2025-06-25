@@ -110,17 +110,32 @@ class FieldListingController {
                 return;
             }
 
-            // Fotoğrafları kontrol et (geçici olarak zorunlu değil)
-            const photoFiles = req.files as Express.Multer.File[] || [];
-            if (photoFiles.length > 3) {
+            // Fotoğrafları kontrol et - artık zorunlu
+            const photoFiles = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
+            if (photoFiles.length < 2 || photoFiles.length > 3) {
                 const response: ApiResponse = {
                     success: false,
-                    message: 'Maksimum 3 fotoğraf yükleyebilirsiniz',
+                    message: 'Halısaha için 2-3 fotoğraf yüklemeniz gereklidir',
                     timestamp: new Date().toISOString(),
                     statusCode: 400
                 };
                 res.status(400).json(response);
                 return;
+            }
+
+            // Fotoğraf tiplerini kontrol et
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            for (const file of photoFiles) {
+                if (!allowedTypes.includes(file.mimetype)) {
+                    const response: ApiResponse = {
+                        success: false,
+                        message: `Geçersiz dosya tipi: ${file.originalname}. Sadece resim dosyaları yükleyebilirsiniz.`,
+                        timestamp: new Date().toISOString(),
+                        statusCode: 400
+                    };
+                    res.status(400).json(response);
+                    return;
+                }
             }
 
             // Önce halısaha ilanını oluştur
@@ -141,24 +156,6 @@ class FieldListingController {
 
             const result = await fieldListingService.createFieldListing(userId, createData);
 
-            // Eğer halısaha oluşturuldu ve fotoğraflar varsa, fotoğrafları MinIO'ya yükle
-            if (result.success && photoFiles.length > 0) {
-                const uploadedPhotos: string[] = [];
-                const minioService = new MinioService();
-
-                for (const file of photoFiles) {
-                    const uploadResult = await minioService.uploadFieldPhoto(file, result.data!.id);
-                    if (uploadResult.success) {
-                        uploadedPhotos.push(uploadResult.data!.url);
-                    }
-                }
-
-                // Fotoğraf URL'lerini veritabanına kaydet
-                if (uploadedPhotos.length > 0) {
-                    await fieldListingService.updateFieldPhotos(result.data!.id, uploadedPhotos);
-                }
-            }
-
             if (!result.success) {
                 const response: ApiResponse = {
                     success: false,
@@ -170,16 +167,72 @@ class FieldListingController {
                 return;
             }
 
-            const response: ApiResponse = {
-                success: true,
-                message: 'Halısaha ilanı başarıyla oluşturuldu',
-                data: result.data,
-                timestamp: new Date().toISOString(),
-                statusCode: 201
-            };
-            res.status(201).json(response);
+            // Halısaha oluşturulduktan sonra fotoğrafları yükle
+            const fieldId = result.data!.id;
+            const uploadedPhotos: string[] = [];
+
+            try {
+                // Fotoğrafları MinIO'ya yükle
+                for (let i = 0; i < photoFiles.length; i++) {
+                    const file = photoFiles[i];
+                    const uploadResult = await this.minioService.uploadFile(file, 'field', userId, fieldId);
+                    if (uploadResult.success) {
+                        uploadedPhotos.push(uploadResult.data!.url);
+                    } else {
+                        throw new Error(`Fotoğraf ${i + 1} yüklenemedi: ${uploadResult.error}`);
+                    }
+                }
+
+                // Fotoğraf URL'lerini veritabanına kaydet
+                if (uploadedPhotos.length > 0) {
+                    await fieldListingService.updateFieldPhotos(fieldId, uploadedPhotos);
+                }
+
+                // Güncellenmiş halısaha bilgilerini getir
+                const updatedListing = await fieldListingService.getFieldListingById(fieldId);
+
+                const response: ApiResponse = {
+                    success: true,
+                    message: 'Halısaha ilanı ve fotoğrafları başarıyla oluşturuldu',
+                    data: updatedListing.data,
+                    timestamp: new Date().toISOString(),
+                    statusCode: 201
+                };
+                res.status(201).json(response);
+
+            } catch (photoError) {
+                // Fotoğraf yükleme hatasını logla
+                console.error('Fotoğraf yükleme hatası:', {
+                    userId,
+                    fieldId,
+                    error: photoError instanceof Error ? photoError.message : photoError,
+                    stack: photoError instanceof Error ? photoError.stack : undefined,
+                    timestamp: new Date().toISOString()
+                });
+
+                // Fotoğraf yükleme hatası durumunda halısaha ilanını sil
+                await fieldListingService.deleteFieldListingById(fieldId);
+
+                const response: ApiResponse = {
+                    success: false,
+                    message: `Fotoğraf yükleme hatası: ${photoError instanceof Error ? photoError.message : 'Bilinmeyen hata'}`,
+                    timestamp: new Date().toISOString(),
+                    statusCode: 500
+                };
+                res.status(500).json(response);
+                return;
+            }
 
         } catch (error) {
+            // Ana hatayı logla
+            console.error('Halısaha ilanı oluşturma hatası:', {
+                userId: req.user?.id,
+                requestBody: req.body,
+                error: error instanceof Error ? error.message : error,
+                stack: error instanceof Error ? error.stack : undefined,
+                timestamp: new Date().toISOString()
+            });
+
             const response: ApiResponse = {
                 success: false,
                 message: 'Halısaha ilanı oluşturma sırasında hata oluştu',
@@ -221,7 +274,7 @@ class FieldListingController {
             } = req.body;
 
             // Fotoğrafları kontrol et
-            const photos = req.files ? (req.files as Express.Multer.File[]).map(file => file.filename) : undefined;
+            const photos = req.files ? (Array.isArray(req.files) ? req.files : []).map(file => file.filename) : undefined;
             if (photos && photos.length > 3) {
                 const response: ApiResponse = {
                     success: false,

@@ -136,6 +136,8 @@ export interface JwtPayload {
 
 export interface CustomRequest extends Request {
     user?: User;
+    body: any;
+    files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[]; };
 }
 
 export interface CustomResponse extends Response { }
@@ -279,4 +281,93 @@ export interface FieldListingFilterDto {
     startTime?: string;
     endTime?: string;
     search?: string; // For field name or address search
+}
+
+// Goalkeeper & Referee Listing Types
+export interface GoalkeeperListing {
+    id: string;
+    userId: string;
+    title: string;
+    location: string;
+    description: string;
+    hasLicense: boolean;
+    hourlyPrice: number | string; // Can be Decimal from Prisma or number from input
+    bio: string;
+    phone: string;
+    contactType: ContactType;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    user?: User;
+}
+
+export interface RefereeListing {
+    id: string;
+    userId: string;
+    title: string;
+    location: string;
+    description: string;
+    hasLicense: boolean;
+    hourlyPrice: number | string; // Can be Decimal from Prisma or number from input
+    bio: string;
+    phone: string;
+    contactType: ContactType;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    user?: User;
+}
+
+export interface CreateGoalkeeperListingDto {
+    title: string;
+    location: string;
+    description: string;
+    hasLicense?: boolean;
+    hourlyPrice: number;
+    bio: string;
+    phone: string;
+    contactType?: ContactType;
+}
+
+export interface CreateRefereeListingDto {
+    title: string;
+    location: string;
+    description: string;
+    hasLicense?: boolean;
+    hourlyPrice: number;
+    bio: string;
+    phone: string;
+    contactType?: ContactType;
+}
+
+export interface UpdateGoalkeeperListingDto {
+    title?: string;
+    location?: string;
+    description?: string;
+    hasLicense?: boolean;
+    hourlyPrice?: number;
+    bio?: string;
+    phone?: string;
+    contactType?: ContactType;
+    isActive?: boolean;
+}
+
+export interface UpdateRefereeListingDto {
+    title?: string;
+    location?: string;
+    description?: string;
+    hasLicense?: boolean;
+    hourlyPrice?: number;
+    bio?: string;
+    phone?: string;
+    contactType?: ContactType;
+    isActive?: boolean;
+}
+
+export interface ServiceListingFilterDto {
+    minPrice?: number;
+    maxPrice?: number;
+    hasLicense?: boolean;
+    location?: string;
+    search?: string; // For title or bio search
 }

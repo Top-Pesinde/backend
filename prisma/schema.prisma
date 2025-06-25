@@ -24,11 +24,13 @@ model User {
   lisans        Boolean   @default(false)
   role          Role      @default(USER)
   subscription  Boolean   @default(false) @map("subscription")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  documents     Document[]
-  fieldListings FieldListing[]
-  status        Boolean   @default(true)
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  documents          Document[]
+  fieldListings      FieldListing[]
+  goalkeeperListings GoalkeeperListing[]
+  refereeListings    RefereeListing[]
+  status             Boolean            @default(true)
 
   @@map("users")
 }
@@ -117,6 +119,46 @@ model FieldPhoto {
   fieldListing   FieldListing @relation(fields: [fieldListingId], references: [id], onDelete: Cascade)
 
   @@map("field_photos")
+}
+
+model GoalkeeperListing {
+  id          String      @id @default(cuid())
+  userId      String      @map("user_id")
+  title       String      // İlan Başlığı
+  location    String      // Konum
+  description String      // Açıklama
+  hasLicense  Boolean     @map("has_license") @default(false) // Lisans seçeneği
+  hourlyPrice Decimal     @map("hourly_price") @db.Decimal(10, 2) // Saatlik ücret
+  bio         String      // Kendini anlatan yazı
+  phone       String
+  contactType ContactType @map("contact_type") @default(PHONE)
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("goalkeeper_listings")
+}
+
+model RefereeListing {
+  id          String      @id @default(cuid())
+  userId      String      @map("user_id")
+  title       String      // İlan Başlığı
+  location    String      // Konum
+  description String      // Açıklama
+  hasLicense  Boolean     @map("has_license") @default(false) // Lisans seçeneği
+  hourlyPrice Decimal     @map("hourly_price") @db.Decimal(10, 2) // Saatlik ücret
+  bio         String      // Kendini anlatan yazı
+  phone       String
+  contactType ContactType @map("contact_type") @default(PHONE)
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("referee_listings")
 }
 
 enum Role {

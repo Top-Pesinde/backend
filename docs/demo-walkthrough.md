@@ -33,8 +33,7 @@ curl -X POST http://localhost:3000/api/v1/auth/register \
   -F "role=FOOTBALL_FIELD_OWNER" \
   -F "location=İzmir Bornova" \
   -F "bio=Halısaha ve futbol sahası işletmecisi" \
-  -F "profilePhoto=@image.png" \
-  -F "documents=@image.png"
+  -F "profilePhoto=@image.png"
 ```
 
 **Sonuç:**

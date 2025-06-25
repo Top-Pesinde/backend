@@ -76,7 +76,7 @@ router.post(
     '/',
     authenticateToken,
     upload.array('photos', 3),
-    fieldListingController.createFieldListing
+    fieldListingController.createFieldListing.bind(fieldListingController)
 );
 
 /**
@@ -84,14 +84,14 @@ router.post(
  * @desc Get current user's all field listings (active + inactive)
  * @access Private
  */
-router.get('/my/listings', authenticateToken, fieldListingController.getUserFieldListings);
+router.get('/my/listings', authenticateToken, fieldListingController.getUserFieldListings.bind(fieldListingController));
 
 /**
  * @route GET /api/field-listings/my/listing
  * @desc Get current user's field listing (deprecated - use /my/listings)
  * @access Private
  */
-router.get('/my/listing', authenticateToken, fieldListingController.getUserFieldListing);
+router.get('/my/listing', authenticateToken, fieldListingController.getUserFieldListing.bind(fieldListingController));
 
 /**
  * @route PUT /api/field-listings/my/listing
@@ -114,7 +114,7 @@ router.put(
     '/my/listing',
     authenticateToken,
     upload.array('photos', 3),
-    fieldListingController.updateFieldListing
+    fieldListingController.updateFieldListing.bind(fieldListingController)
 );
 
 /**
@@ -122,20 +122,20 @@ router.put(
  * @desc Deactivate current user's field listing
  * @access Private
  */
-router.patch('/my/listing/deactivate', authenticateToken, fieldListingController.deactivateFieldListing);
+router.patch('/my/listing/deactivate', authenticateToken, fieldListingController.deactivateFieldListing.bind(fieldListingController));
 
 /**
  * @route PATCH /api/field-listings/my/listing/activate
  * @desc Activate current user's field listing
  * @access Private
  */
-router.patch('/my/listing/activate', authenticateToken, fieldListingController.activateFieldListing);
+router.patch('/my/listing/activate', authenticateToken, fieldListingController.activateFieldListing.bind(fieldListingController));
 
 /**
  * @route DELETE /api/field-listings/my/listing
  * @desc Delete current user's field listing
  * @access Private
  */
-router.delete('/my/listing', authenticateToken, fieldListingController.deleteFieldListing);
+router.delete('/my/listing', authenticateToken, fieldListingController.deleteFieldListing.bind(fieldListingController));
 
 export default router; 

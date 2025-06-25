@@ -4,6 +4,8 @@ import { uploadRoutes } from './uploadRoutes';
 import { userRoutes } from './userRoutes';
 import { metricsRoutes } from './metricsRoutes';
 import fieldListingRoutes from './fieldListingRoutes';
+import goalkeeperRoutes from './goalkeeperRoutes';
+import refereeRoutes from './refereeRoutes';
 
 const router = Router();
 
@@ -12,6 +14,8 @@ router.use('/v1/auth', authRoutes);
 router.use('/v1/uploads', uploadRoutes);
 router.use('/v1/users', userRoutes);
 router.use('/v1/field-listings', fieldListingRoutes);
+router.use('/v1/goalkeeper-listings', goalkeeperRoutes);
+router.use('/v1/referee-listings', refereeRoutes);
 
 // Monitoring routes (no version prefix)
 router.use('/', metricsRoutes);
