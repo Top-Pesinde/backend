@@ -9,6 +9,22 @@ import {
 } from '../types';
 
 export class GoalkeeperService {
+    // Helper method to format contact type for display
+    private formatContactType(contactType: string) {
+        return contactType === 'WHATSAPP' ? 'WhatsApp' : 'Telefon';
+    }
+
+    // Helper method to enhance listing data with display fields
+    private enhanceListingData(listing: any) {
+        return {
+            ...listing,
+            contactTypeDisplay: this.formatContactType(listing.contactType),
+            contactTypeIcon: listing.contactType === 'WHATSAPP' ? '📱' : '📞',
+            priceDisplay: `${listing.hourlyPrice} TL/saat`,
+            licenseDisplay: listing.hasLicense ? '✅ Lisanslı' : '❌ Lisansız'
+        };
+    }
+
     // Kaleci ilanı oluşturma
     async createGoalkeeperListing(userId: string, data: CreateGoalkeeperListingDto): Promise<ServiceResponse<GoalkeeperListing>> {
         try {
@@ -30,6 +46,22 @@ export class GoalkeeperService {
                     success: false,
                     error: 'Bu işlem için GOALKEEPER rolüne sahip olmanız gerekiyor',
                     statusCode: 403
+                };
+            }
+
+            // Kullanıcının aktif kaleci ilanı olup olmadığını kontrol et
+            const existingActiveListing = await prisma.goalkeeperListing.findFirst({
+                where: {
+                    userId,
+                    isActive: true
+                }
+            });
+
+            if (existingActiveListing) {
+                return {
+                    success: false,
+                    error: 'Zaten aktif bir kaleci ilanınız bulunmaktadır. Yeni ilan açmak için önce mevcut ilanınızı devre dışı bırakın.',
+                    statusCode: 400
                 };
             }
 
@@ -65,7 +97,7 @@ export class GoalkeeperService {
 
             return {
                 success: true,
-                data: goalkeeperListing as any,
+                data: this.enhanceListingData(goalkeeperListing) as any,
                 statusCode: 201
             };
         } catch (error) {
@@ -155,7 +187,7 @@ export class GoalkeeperService {
             return {
                 success: true,
                 data: {
-                    data: listings as any,
+                    data: listings.map(listing => this.enhanceListingData(listing)) as any,
                     pagination
                 },
                 statusCode: 200
@@ -202,7 +234,7 @@ export class GoalkeeperService {
 
             return {
                 success: true,
-                data: listing as any,
+                data: this.enhanceListingData(listing) as any,
                 statusCode: 200
             };
         } catch (error) {
@@ -240,7 +272,7 @@ export class GoalkeeperService {
 
             return {
                 success: true,
-                data: listings as any[],
+                data: listings.map(listing => this.enhanceListingData(listing)) as any[],
                 statusCode: 200
             };
         } catch (error) {
@@ -314,7 +346,7 @@ export class GoalkeeperService {
 
             return {
                 success: true,
-                data: updatedListing as any,
+                data: this.enhanceListingData(updatedListing) as any,
                 statusCode: 200
             };
         } catch (error) {
@@ -365,6 +397,159 @@ export class GoalkeeperService {
             return {
                 success: false,
                 error: 'Kaleci ilanı silinirken bir hata oluştu',
+                statusCode: 500
+            };
+        }
+    }
+
+    // Kaleci ilanını aktifleştirme
+    async activateGoalkeeperListing(id: string, userId: string): Promise<ServiceResponse<GoalkeeperListing>> {
+        try {
+            // İlan var mı ve kullanıcının kendi ilanı mı kontrol et
+            const existingListing = await prisma.goalkeeperListing.findUnique({
+                where: { id }
+            });
+
+            if (!existingListing) {
+                return {
+                    success: false,
+                    error: 'Kaleci ilanı bulunamadı',
+                    statusCode: 404
+                };
+            }
+
+            if (existingListing.userId !== userId) {
+                return {
+                    success: false,
+                    error: 'Bu ilanı aktifleştirme yetkiniz yok',
+                    statusCode: 403
+                };
+            }
+
+            if (existingListing.isActive) {
+                return {
+                    success: false,
+                    error: 'İlan zaten aktif durumda',
+                    statusCode: 400
+                };
+            }
+
+            // Kullanıcının başka aktif ilanı var mı kontrol et
+            const activeListingExists = await prisma.goalkeeperListing.findFirst({
+                where: {
+                    userId,
+                    isActive: true,
+                    id: { not: id }
+                }
+            });
+
+            if (activeListingExists) {
+                return {
+                    success: false,
+                    error: 'Zaten aktif bir kaleci ilanınız bulunmaktadır. Önce mevcut aktif ilanınızı devre dışı bırakın.',
+                    statusCode: 400
+                };
+            }
+
+            // İlanı aktifleştir
+            const activatedListing = await prisma.goalkeeperListing.update({
+                where: { id },
+                data: { isActive: true },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                            email: true,
+                            phone: true,
+                            profilePhoto: true,
+                            role: true,
+                            createdAt: true
+                        }
+                    }
+                }
+            });
+
+            return {
+                success: true,
+                data: this.enhanceListingData(activatedListing) as any,
+                statusCode: 200
+            };
+        } catch (error) {
+            console.error('GoalkeeperService.activateGoalkeeperListing error:', error);
+            return {
+                success: false,
+                error: 'Kaleci ilanı aktifleştirilirken bir hata oluştu',
+                statusCode: 500
+            };
+        }
+    }
+
+    // Kaleci ilanını deaktifleştirme
+    async deactivateGoalkeeperListing(id: string, userId: string): Promise<ServiceResponse<GoalkeeperListing>> {
+        try {
+            // İlan var mı ve kullanıcının kendi ilanı mı kontrol et
+            const existingListing = await prisma.goalkeeperListing.findUnique({
+                where: { id }
+            });
+
+            if (!existingListing) {
+                return {
+                    success: false,
+                    error: 'Kaleci ilanı bulunamadı',
+                    statusCode: 404
+                };
+            }
+
+            if (existingListing.userId !== userId) {
+                return {
+                    success: false,
+                    error: 'Bu ilanı deaktifleştirme yetkiniz yok',
+                    statusCode: 403
+                };
+            }
+
+            if (!existingListing.isActive) {
+                return {
+                    success: false,
+                    error: 'İlan zaten pasif durumda',
+                    statusCode: 400
+                };
+            }
+
+            // İlanı deaktifleştir
+            const deactivatedListing = await prisma.goalkeeperListing.update({
+                where: { id },
+                data: { isActive: false },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                            email: true,
+                            phone: true,
+                            profilePhoto: true,
+                            role: true,
+                            createdAt: true
+                        }
+                    }
+                }
+            });
+
+            return {
+                success: true,
+                data: this.enhanceListingData(deactivatedListing) as any,
+                statusCode: 200
+            };
+        } catch (error) {
+            console.error('GoalkeeperService.deactivateGoalkeeperListing error:', error);
+            return {
+                success: false,
+                error: 'Kaleci ilanı deaktifleştirilirken bir hata oluştu',
                 statusCode: 500
             };
         }

@@ -30,6 +30,7 @@ model User {
   fieldListings      FieldListing[]
   goalkeeperListings GoalkeeperListing[]
   refereeListings    RefereeListing[]
+  fcmTokens          FcmToken[]
   status             Boolean            @default(true)
 
   @@map("users")
@@ -161,6 +162,22 @@ model RefereeListing {
   @@map("referee_listings")
 }
 
+model FcmToken {
+  id        String      @id @default(cuid())
+  userId    String      @map("user_id")
+  token     String      @unique // FCM token benzersiz olmalı
+  platform  Platform    // iOS, Android, Web
+  deviceId  String?     @map("device_id") // Cihaz ID (optional)
+  isActive  Boolean     @default(true) @map("is_active")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, deviceId]) // Aynı kullanıcıdan aynı cihaz sadece bir token
+  @@map("fcm_tokens")
+}
+
 enum Role {
   USER
   GOALKEEPER
@@ -189,6 +206,12 @@ enum DayOfWeek {
   FRIDAY
   SATURDAY
   SUNDAY
+}
+
+enum Platform {
+  IOS
+  ANDROID
+  WEB
 }
 
 enum FeatureType {

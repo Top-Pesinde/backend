@@ -25,4 +25,10 @@ router.put('/:id', goalkeeperController.updateGoalkeeperListing.bind(goalkeeperC
 // Kaleci ilanını silme (sadece ilanın sahibi)
 router.delete('/:id', goalkeeperController.deleteGoalkeeperListing.bind(goalkeeperController));
 
+// Kaleci ilanını aktifleştirme (sadece ilanın sahibi)
+router.patch('/:id/activate', goalkeeperController.activateGoalkeeperListing.bind(goalkeeperController));
+
+// Kaleci ilanını deaktifleştirme (sadece ilanın sahibi)
+router.patch('/:id/deactivate', goalkeeperController.deactivateGoalkeeperListing.bind(goalkeeperController));
+
 export default router; 

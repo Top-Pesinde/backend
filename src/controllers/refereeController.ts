@@ -386,6 +386,122 @@ export class RefereeController {
             });
         }
     }
+
+    // Hakem ilanını aktifleştirme
+    async activateRefereeListing(req: CustomRequest, res: Response) {
+        try {
+            const userId = req.user?.id;
+            const { id } = req.params;
+
+            if (!userId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Unauthorized - Token gerekli',
+                    error: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                });
+            }
+
+            if (!id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'İlan ID gereklidir',
+                    error: 'Missing listing ID',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                });
+            }
+
+            const result = await refereeService.activateRefereeListing(id, userId);
+
+            if (!result.success) {
+                return res.status(result.statusCode || 500).json({
+                    success: false,
+                    message: result.error || 'Hakem ilanı aktifleştirilemedi',
+                    error: result.error,
+                    timestamp: new Date().toISOString(),
+                    statusCode: result.statusCode || 500
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Hakem ilanı başarıyla aktifleştirildi',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: 200
+            });
+
+        } catch (error) {
+            console.error('RefereeController.activateRefereeListing error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Sunucu hatası',
+                error: 'Internal server error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            });
+        }
+    }
+
+    // Hakem ilanını deaktifleştirme
+    async deactivateRefereeListing(req: CustomRequest, res: Response) {
+        try {
+            const userId = req.user?.id;
+            const { id } = req.params;
+
+            if (!userId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Unauthorized - Token gerekli',
+                    error: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                });
+            }
+
+            if (!id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'İlan ID gereklidir',
+                    error: 'Missing listing ID',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                });
+            }
+
+            const result = await refereeService.deactivateRefereeListing(id, userId);
+
+            if (!result.success) {
+                return res.status(result.statusCode || 500).json({
+                    success: false,
+                    message: result.error || 'Hakem ilanı deaktifleştirilemedi',
+                    error: result.error,
+                    timestamp: new Date().toISOString(),
+                    statusCode: result.statusCode || 500
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Hakem ilanı başarıyla deaktifleştirildi',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: 200
+            });
+
+        } catch (error) {
+            console.error('RefereeController.deactivateRefereeListing error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Sunucu hatası',
+                error: 'Internal server error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            });
+        }
+    }
 }
 
 export const refereeController = new RefereeController(); 

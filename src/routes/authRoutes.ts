@@ -40,8 +40,11 @@ router.post('/register', upload.fields([
 // POST /api/auth/login - Kullanıcı girişi
 router.post('/login', authController.login.bind(authController));
 
-// POST /api/auth/refresh - Token yenileme
+// POST /apwi/auth/refresh - Token yenileme
 router.post('/refresh', authController.refreshToken.bind(authController));
+
+// POST /api/auth/logout - Kullanıcı çıkışı (korumalı)
+router.post('/logout', authenticateToken, authController.logout.bind(authController));
 
 // GET /api/auth/profile - Kullanıcı profili (korumalı)
 router.get('/profile', authenticateToken, authController.getProfile.bind(authController));

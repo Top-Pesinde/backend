@@ -371,3 +371,33 @@ export interface ServiceListingFilterDto {
     location?: string;
     search?: string; // For title or bio search
 }
+
+// ========================
+// FCM Token Types
+// ========================
+
+export type Platform = 'IOS' | 'ANDROID' | 'WEB';
+
+export interface FcmToken {
+    id: string;
+    userId: string;
+    token: string;
+    platform: Platform;
+    deviceId?: string;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface CreateFcmTokenDto {
+    token: string;
+    platform: Platform;
+    deviceId?: string;
+}
+
+export interface UpdateFcmTokenDto {
+    token?: string;
+    platform?: Platform;
+    deviceId?: string;
+    isActive?: boolean;
+}

@@ -534,4 +534,34 @@ export class AuthController {
             res.status(500).json(response);
         }
     }
+
+    async logout(req: Request, res: Response): Promise<void> {
+        try {
+            // In a stateless JWT system, logout is typically handled on the client side
+            // by simply removing the token. However, we can still provide a logout endpoint
+            // for consistency and potential future token blacklisting implementation.
+
+            const response: ApiResponse = {
+                success: true,
+                message: 'Logout successful',
+                data: {
+                    message: 'Please remove the token from client storage'
+                },
+                timestamp: new Date().toISOString(),
+                statusCode: 200
+            };
+
+            res.status(200).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+
+            res.status(500).json(response);
+        }
+    }
 }

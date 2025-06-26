@@ -6,6 +6,7 @@ import { metricsRoutes } from './metricsRoutes';
 import fieldListingRoutes from './fieldListingRoutes';
 import goalkeeperRoutes from './goalkeeperRoutes';
 import refereeRoutes from './refereeRoutes';
+import fcmTokenRoutes from './fcmTokenRoutes';
 
 const router = Router();
 
@@ -16,6 +17,7 @@ router.use('/v1/users', userRoutes);
 router.use('/v1/field-listings', fieldListingRoutes);
 router.use('/v1/goalkeeper-listings', goalkeeperRoutes);
 router.use('/v1/referee-listings', refereeRoutes);
+router.use('/v1/fcm-tokens', fcmTokenRoutes);
 
 // Monitoring routes (no version prefix)
 router.use('/', metricsRoutes);
@@ -69,6 +71,27 @@ router.get('/', (req, res) => {
                 deactivateMy: 'PATCH /api/v1/field-listings/my/listing/deactivate (Deactivate listing)',
                 activateMy: 'PATCH /api/v1/field-listings/my/listing/activate (Activate listing)',
                 deleteMy: 'DELETE /api/v1/field-listings/my/listing (Delete listing)',
+            },
+            goalkeeperListings: {
+                create: 'POST /api/v1/goalkeeper-listings (Create new goalkeeper listing - GOALKEEPER role)',
+                getAll: 'GET /api/v1/goalkeeper-listings (Get all goalkeeper listings)',
+                getById: 'GET /api/v1/goalkeeper-listings/:id (Get goalkeeper listing by ID)',
+                getMy: 'GET /api/v1/goalkeeper-listings/my/listings (Get current user\'s goalkeeper listings)',
+                update: 'PUT /api/v1/goalkeeper-listings/:id (Update goalkeeper listing)',
+                delete: 'DELETE /api/v1/goalkeeper-listings/:id (Delete goalkeeper listing)',
+            },
+            refereeListings: {
+                create: 'POST /api/v1/referee-listings (Create new referee listing - REFEREE role)',
+                getAll: 'GET /api/v1/referee-listings (Get all referee listings)',
+                getById: 'GET /api/v1/referee-listings/:id (Get referee listing by ID)',
+                getMy: 'GET /api/v1/referee-listings/my/listings (Get current user\'s referee listings)',
+                update: 'PUT /api/v1/referee-listings/:id (Update referee listing)',
+                delete: 'DELETE /api/v1/referee-listings/:id (Delete referee listing)',
+            },
+            fcmTokens: {
+                upsert: 'POST /api/v1/fcm-tokens (Create or update FCM token)',
+                getMy: 'GET /api/v1/fcm-tokens (Get current user\'s FCM tokens)',
+                delete: 'DELETE /api/v1/fcm-tokens/:tokenId (Delete FCM token)',
             },
             health: '/health',
             metrics: '/metrics (Prometheus metrics)',

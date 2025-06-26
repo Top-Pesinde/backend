@@ -25,4 +25,10 @@ router.put('/:id', refereeController.updateRefereeListing.bind(refereeController
 // Hakem ilanını silme (sadece ilanın sahibi)
 router.delete('/:id', refereeController.deleteRefereeListing.bind(refereeController));
 
+// Hakem ilanını aktifleştirme (sadece ilanın sahibi)
+router.patch('/:id/activate', refereeController.activateRefereeListing.bind(refereeController));
+
+// Hakem ilanını deaktifleştirme (sadece ilanın sahibi)
+router.patch('/:id/deactivate', refereeController.deactivateRefereeListing.bind(refereeController));
+
 export default router; 

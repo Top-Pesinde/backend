@@ -386,6 +386,122 @@ export class GoalkeeperController {
             });
         }
     }
+
+    // Kaleci ilanını aktifleştirme
+    async activateGoalkeeperListing(req: CustomRequest, res: Response) {
+        try {
+            const userId = req.user?.id;
+            const { id } = req.params;
+
+            if (!userId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Unauthorized - Token gerekli',
+                    error: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                });
+            }
+
+            if (!id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'İlan ID gereklidir',
+                    error: 'Missing listing ID',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                });
+            }
+
+            const result = await goalkeeperService.activateGoalkeeperListing(id, userId);
+
+            if (!result.success) {
+                return res.status(result.statusCode || 500).json({
+                    success: false,
+                    message: result.error || 'Kaleci ilanı aktifleştirilemedi',
+                    error: result.error,
+                    timestamp: new Date().toISOString(),
+                    statusCode: result.statusCode || 500
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Kaleci ilanı başarıyla aktifleştirildi',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: 200
+            });
+
+        } catch (error) {
+            console.error('GoalkeeperController.activateGoalkeeperListing error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Sunucu hatası',
+                error: 'Internal server error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            });
+        }
+    }
+
+    // Kaleci ilanını deaktifleştirme
+    async deactivateGoalkeeperListing(req: CustomRequest, res: Response) {
+        try {
+            const userId = req.user?.id;
+            const { id } = req.params;
+
+            if (!userId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Unauthorized - Token gerekli',
+                    error: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                });
+            }
+
+            if (!id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'İlan ID gereklidir',
+                    error: 'Missing listing ID',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                });
+            }
+
+            const result = await goalkeeperService.deactivateGoalkeeperListing(id, userId);
+
+            if (!result.success) {
+                return res.status(result.statusCode || 500).json({
+                    success: false,
+                    message: result.error || 'Kaleci ilanı deaktifleştirilemedi',
+                    error: result.error,
+                    timestamp: new Date().toISOString(),
+                    statusCode: result.statusCode || 500
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Kaleci ilanı başarıyla deaktifleştirildi',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: 200
+            });
+
+        } catch (error) {
+            console.error('GoalkeeperController.deactivateGoalkeeperListing error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Sunucu hatası',
+                error: 'Internal server error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            });
+        }
+    }
 }
 
 export const goalkeeperController = new GoalkeeperController(); 
