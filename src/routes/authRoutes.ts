@@ -40,6 +40,12 @@ router.post('/register', upload.fields([
 // POST /api/auth/login - Kullanıcı girişi
 router.post('/login', authController.login.bind(authController));
 
+// POST /api/auth/forgot-password - Şifre sıfırlama kodu gönderme
+router.post('/forgot-password', authController.forgotPassword.bind(authController));
+
+// POST /api/auth/reset-password - Token ile şifre sıfırlama
+router.post('/reset-password', authController.resetPassword.bind(authController));
+
 // POST /apwi/auth/refresh - Token yenileme
 router.post('/refresh', authController.refreshToken.bind(authController));
 

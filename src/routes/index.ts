@@ -35,6 +35,8 @@ router.get('/', (req, res) => {
             auth: {
                 register: 'POST /api/v1/auth/register',
                 login: 'POST /api/v1/auth/login',
+                forgotPassword: 'POST /api/v1/auth/forgot-password',
+                resetPassword: 'POST /api/v1/auth/reset-password',
                 refresh: 'POST /api/v1/auth/refresh',
                 profile: 'GET /api/v1/auth/profile',
                 logout: 'POST /api/v1/auth/logout',
