@@ -44,8 +44,6 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-      
-
 
     steps:
       # 1. Checkout Code
@@ -93,37 +91,37 @@ jobs:
           
           echo "✅ Database setup completed"
 
-             # 6. Start MinIO & Wait for Services  
-       - name: ⏳ Setup MinIO & Wait for Services
-         run: |
-           echo "🗄️ Starting MinIO server..."
-           docker run -d --name minio-test \
-             -p 9000:9000 -p 9001:9001 \
-             -e MINIO_ROOT_USER=minioadmin \
-             -e MINIO_ROOT_PASSWORD=minioadmin123 \
-             minio/minio server /data --console-address ":9001"
-           
-           echo "🔍 Waiting for PostgreSQL..."
-           until pg_isready -h localhost -p 5432 -U ${{ env.POSTGRES_USER }}; do
-             echo "Waiting for PostgreSQL..."
-             sleep 2
-           done
-           echo "✅ PostgreSQL ready"
-           
-           echo "🔍 Waiting for Redis..."
-           until redis-cli -h localhost -p 6379 ping; do
-             echo "Waiting for Redis..."
-             sleep 2
-           done
-           echo "✅ Redis ready"
-           
-           echo "🔍 Waiting for MinIO..."
-           sleep 10
-           until curl -f http://localhost:9000/minio/health/live 2>/dev/null; do
-             echo "Waiting for MinIO..."
-             sleep 3
-           done
-           echo "✅ MinIO ready"
+      # 6. Start MinIO & Wait for Services  
+      - name: ⏳ Setup MinIO & Wait for Services
+        run: |
+          echo "🗄️ Starting MinIO server..."
+          docker run -d --name minio-test \
+            -p 9000:9000 -p 9001:9001 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin123 \
+            minio/minio server /data --console-address ":9001"
+          
+          echo "🔍 Waiting for PostgreSQL..."
+          until pg_isready -h localhost -p 5432 -U ${{ env.POSTGRES_USER }}; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          echo "✅ PostgreSQL ready"
+          
+          echo "🔍 Waiting for Redis..."
+          until redis-cli -h localhost -p 6379 ping; do
+            echo "Waiting for Redis..."
+            sleep 2
+          done
+          echo "✅ Redis ready"
+          
+          echo "🔍 Waiting for MinIO..."
+          sleep 10
+          until curl -f http://localhost:9000/minio/health/live 2>/dev/null; do
+            echo "Waiting for MinIO..."
+            sleep 3
+          done
+          echo "✅ MinIO ready"
 
       # 7. Build Project
       - name: 🔨 Build Project
@@ -131,31 +129,31 @@ jobs:
           npm run build
           echo "✅ Project built successfully"
 
-             # 8. Run Tests
-       - name: 🧪 Run Tests
-         run: |
-           echo "🚀 Running all tests..."
-           npm run test:ci
-           echo "✅ Tests completed"
+      # 8. Run Tests
+      - name: 🧪 Run Tests
+        run: |
+          echo "🚀 Running all tests..."
+          npm run test:ci
+          echo "✅ Tests completed"
 
-             # 9. API Health Check
-       - name: 🏥 API Health Check
-         run: |
-           echo "🚀 Starting server for health check..."
-           npm start &
-           SERVER_PID=$!
-           
-           echo "⏳ Waiting for server to start..."
-           sleep 10
-           
-           echo "🔍 Checking API health..."
-           curl -f http://localhost:3001/health || (echo "❌ Health check failed" && exit 1)
-           
-           echo "🛑 Stopping server..."
-           kill $SERVER_PID
-           echo "✅ API health check passed"
+      # 9. API Health Check
+      - name: 🏥 API Health Check
+        run: |
+          echo "🚀 Starting server for health check..."
+          npm start &
+          SERVER_PID=$!
+          
+          echo "⏳ Waiting for server to start..."
+          sleep 10
+          
+          echo "🔍 Checking API health..."
+          curl -f http://localhost:3001/health || (echo "❌ Health check failed" && exit 1)
+          
+          echo "🛑 Stopping server..."
+          kill $SERVER_PID
+          echo "✅ API health check passed"
 
-       # 10. Forget Password API Test
+      # 10. Forget Password API Test
       - name: 🔐 Test Forget Password Feature
         run: |
           echo "🚀 Starting server for Forget Password test..."
@@ -184,25 +182,25 @@ jobs:
           kill $SERVER_PID
           echo "✅ Forget Password feature test completed"
 
-             # 11. Upload Coverage
-       - name: 📊 Upload Coverage to Codecov
-         uses: codecov/codecov-action@v3
-         with:
-           token: ${{ secrets.CODECOV_TOKEN }}
-           file: ./coverage/lcov.info
-           fail_ci_if_error: false
-           verbose: true
+      # 11. Upload Coverage
+      - name: 📊 Upload Coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage/lcov.info
+          fail_ci_if_error: false
+          verbose: true
 
-       # 12. Upload Test Results
-       - name: 📋 Upload Test Results
-         uses: actions/upload-artifact@v4
-         if: always()
-         with:
-           name: test-results
-           path: |
-             coverage/
-             junit.xml
-           retention-days: 30
+      # 12. Upload Test Results
+      - name: 📋 Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            coverage/
+            junit.xml
+          retention-days: 30
 
   # Lint Job (Paralel çalışacak)
   lint:
@@ -222,15 +220,15 @@ jobs:
       - name: 📦 Install Dependencies
         run: npm ci
 
-             - name: 🔍 Run ESLint
-         run: |
-           echo "🔍 Running ESLint..."
-           echo "⚠️ ESLint temporarily disabled - will be configured later"
+      - name: 🔍 Run ESLint
+        run: |
+          echo "🔍 Running ESLint..."
+          echo "⚠️ ESLint temporarily disabled - will be configured later"
 
-             - name: 🎨 Run Prettier Check
-         run: |
-           echo "🎨 Checking code formatting..."
-           echo "⚠️ Prettier check temporarily disabled - will be configured later"
+      - name: 🎨 Run Prettier Check
+        run: |
+          echo "🎨 Checking code formatting..."
+          echo "⚠️ Prettier check temporarily disabled - will be configured later"
 
       - name: 🔒 Run Security Audit
         run: |
