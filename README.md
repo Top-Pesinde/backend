@@ -1,5 +1,12 @@
 # Express.js TypeScript API with Services Architecture
 
+[![Tests](https://github.com/yourusername/backend/actions/workflows/test.yml/badge.svg)](https://github.com/yourusername/backend/actions/workflows/test.yml)
+[![Code Quality](https://github.com/yourusername/backend/actions/workflows/test.yml/badge.svg?job=lint)](https://github.com/yourusername/backend/actions/workflows/test.yml)
+[![Coverage](https://codecov.io/gh/yourusername/backend/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/backend)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/typescript-%5E5.0.0-blue.svg)](https://www.typescriptlang.org/)
+
 Bu proje, Node.js, Express.js ve TypeScript kullanarak services mimarisiyle geliştirilmiş bir RESTful API'dir.
 
 ## 🏗️ Proje Yapısı
@@ -279,6 +286,58 @@ docker-compose up -d
 - Telefon ve lokasyon zorunlu
 - Doküman yükleme gerekli
 
+## 🚀 CI/CD Pipeline
+
+Proje GitHub Actions ile otomatik test ve deployment pipeline'ına sahiptir:
+
+### Test Pipeline
+- ✅ **Automated Testing**: Jest ile unit ve integration testleri
+- ✅ **Code Quality**: ESLint ve Prettier kontrolü
+- ✅ **Security Audit**: npm audit ile güvenlik kontrolü
+- ✅ **Database Testing**: PostgreSQL test veritabanı
+- ✅ **Service Testing**: Redis ve MinIO entegrasyonu
+- ✅ **API Testing**: Health check ve endpoint testleri
+- ✅ **Coverage Report**: Codecov entegrasyonu
+
+### Pipeline Jobs
+1. **🧪 Test Job**: Testler, build ve API kontrolü
+2. **🔍 Lint Job**: Code quality ve security audit (paralel)
+3. **🚀 Deploy Job**: Staging deployment (main branch)
+4. **📢 Notify Job**: Pipeline sonuç bildirimleri
+
+### Kullanım
+```bash
+# Local test pipeline
+npm run test:ci
+npm run build
+npm run lint
+
+# Pipeline trigger
+git push origin main        # Full pipeline
+git push origin develop     # Test pipeline
+```
+
+Detaylı bilgi için: [GitHub Actions Documentation](docs/github-actions.md)
+
+## 🧪 Testing
+
+### Test Konfigürasyonu
+```bash
+# Jest test framework
+npm test                    # Test çalıştır
+npm run test:watch         # Watch mode
+npm run test:coverage      # Coverage report
+npm run test:ci            # CI mode (no watch)
+```
+
+### Test Environment Variables
+```bash
+NODE_ENV=test
+DATABASE_URL=postgresql://postgres:postgres123@localhost:5432/express_api_test_db
+MAIL_FROM_ADDRESS=test@halisaha.app
+JWT_SECRET=test-secret
+```
+
 ## 📈 Gelecek Geliştirmeler
 
 - [x] PostgreSQL entegrasyonu
@@ -286,8 +345,11 @@ docker-compose up -d
 - [x] File upload (MinIO)
 - [x] Role-based authentication
 - [x] Docker support
+- [x] GitHub Actions CI/CD
+- [x] Jest test framework
+- [ ] Unit testler yazımı
+- [ ] Integration testler
 - [ ] Input validation (Joi/Yup)
-- [ ] Unit testler (Jest)
 - [ ] API documentation (Swagger)
 - [ ] Logging (Winston)
 - [ ] Email verification
