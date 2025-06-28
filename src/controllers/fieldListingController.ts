@@ -191,14 +191,14 @@ class FieldListingController {
                 // Güncellenmiş halısaha bilgilerini getir
                 const updatedListing = await fieldListingService.getFieldListingById(fieldId);
 
-                const response: ApiResponse = {
-                    success: true,
+            const response: ApiResponse = {
+                success: true,
                     message: 'Halısaha ilanı ve fotoğrafları başarıyla oluşturuldu',
                     data: updatedListing.data,
-                    timestamp: new Date().toISOString(),
-                    statusCode: 201
-                };
-                res.status(201).json(response);
+                timestamp: new Date().toISOString(),
+                statusCode: 201
+            };
+            res.status(201).json(response);
 
             } catch (photoError) {
                 // Fotoğraf yükleme hatasını logla
