@@ -164,6 +164,15 @@ export interface ChangePasswordDto {
     newPassword: string;
 }
 
+export interface ForgotPasswordDto {
+    email: string;
+}
+
+export interface ResetPasswordDto {
+    token: string;
+    newPassword: string;
+}
+
 // Field Listing Types
 export type SurfaceType = 'GRASS' | 'ARTIFICIAL' | 'CONCRETE' | 'CARPET';
 export type ContactType = 'PHONE' | 'WHATSAPP';

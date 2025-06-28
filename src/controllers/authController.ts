@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/authService';
-import { ApiResponse, RegisterDto, LoginDto, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, UpdateContactInfoDto } from '../types';
+import { ApiResponse, RegisterDto, LoginDto, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto } from '../types';
 import { metricsService } from '../services/metricsService';
 
 const authService = new AuthService();
@@ -553,6 +553,143 @@ export class AuthController {
 
             res.status(200).json(response);
         } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+
+            res.status(500).json(response);
+        }
+    }
+
+    async forgotPassword(req: Request, res: Response): Promise<void> {
+        try {
+            const forgotPasswordData: ForgotPasswordDto = req.body;
+
+            // Basic validation
+            if (!forgotPasswordData.email) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Email is required',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Email format validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(forgotPasswordData.email)) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Invalid email format',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Record forgot password attempt
+            // metricsService.recordAuthAttempt('forgot_password');
+
+            const result = await authService.forgotPassword(forgotPasswordData);
+
+            // Always record as success for security (don't reveal if email exists)
+            // metricsService.recordAuthSuccess('forgot_password');
+
+            const response: ApiResponse = {
+                success: true,
+                message: 'If the email exists, a password reset code has been sent',
+                timestamp: new Date().toISOString(),
+                statusCode: 200
+            };
+
+            res.status(200).json(response);
+        } catch (error) {
+            // metricsService.recordAuthFailure('forgot_password', 'internal_error');
+
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+
+            res.status(500).json(response);
+        }
+    }
+
+    async resetPassword(req: Request, res: Response): Promise<void> {
+        try {
+            const resetPasswordData: ResetPasswordDto = req.body;
+
+            // Basic validation
+            if (!resetPasswordData.token || !resetPasswordData.newPassword) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Reset token and new password are required',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Password strength validation
+            if (resetPasswordData.newPassword.length < 6) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Password must be at least 6 characters long',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Token format validation (6 digit number)
+            if (!/^\d{6}$/.test(resetPasswordData.token)) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Invalid reset token format',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Record reset password attempt
+            // metricsService.recordAuthAttempt('reset_password');
+
+            const result = await authService.resetPassword(resetPasswordData);
+
+            // Record metrics based on result
+            // if (result.success) {
+            //     metricsService.recordAuthSuccess('reset_password');
+            // } else {
+            //     metricsService.recordAuthFailure('reset_password', result.error || 'unknown_error');
+            // }
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success
+                    ? 'Password reset successfully'
+                    : result.error || 'Failed to reset password',
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            // metricsService.recordAuthFailure('reset_password', 'internal_error');
+
             const response: ApiResponse = {
                 success: false,
                 message: 'Internal server error',

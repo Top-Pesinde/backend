@@ -1,7 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto, UpdateContactInfoDto } from '../types';
+import crypto from 'crypto';
+import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto } from '../types';
 import { prisma } from '../lib/prisma';
+import { sendEmail } from '../mail';
 
 export class AuthService {
     private readonly JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
@@ -797,6 +799,326 @@ export class AuthService {
             return {
                 success: false,
                 error: 'Failed to update contact info',
+                statusCode: 500,
+            };
+        }
+    }
+
+    async forgotPassword(forgotPasswordData: ForgotPasswordDto): Promise<ServiceResponse> {
+        try {
+            const { email } = forgotPasswordData;
+
+            // Find user by email
+            const user = await prisma.user.findUnique({
+                where: { email }
+            });
+
+            if (!user) {
+                // Security: Don't reveal if email exists or not
+                return {
+                    success: true,
+                    statusCode: 200,
+                };
+            }
+
+            // Check if user is active
+            if (!user.status) {
+                return {
+                    success: false,
+                    error: 'Account is deactivated. Please contact support.',
+                    statusCode: 403,
+                };
+            }
+
+            // Generate reset token (6-digit code for better UX)
+            const resetToken = crypto.randomInt(100000, 999999).toString();
+
+            // Set token expiration (15 minutes from now)
+            const resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
+
+            // Get Turkish time for display
+            const turkishExpireTime = new Date(resetTokenExpires).toLocaleString('tr-TR', {
+                timeZone: 'Europe/Istanbul',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            // Save reset token to database
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    resetToken,
+                    resetTokenExpires
+                }
+            });
+
+            // Prepare email content
+            const subject = '🔐 Halısaha App - Şifre Sıfırlama Kodu';
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
+                        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+                        .header { text-align: center; margin-bottom: 30px; }
+                        .logo { color: #007bff; font-size: 28px; font-weight: bold; margin-bottom: 10px; }
+                        .title { color: #333; font-size: 24px; margin-bottom: 10px; }
+                        .subtitle { color: #666; font-size: 16px; }
+                        .reset-code { 
+                            background: linear-gradient(135deg, #007bff, #0056b3); 
+                            color: white; 
+                            font-size: 36px; 
+                            font-weight: bold; 
+                            text-align: center; 
+                            padding: 20px; 
+                            border-radius: 8px; 
+                            margin: 30px 0; 
+                            letter-spacing: 8px;
+                            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                        }
+                        .content { line-height: 1.6; color: #333; margin: 20px 0; }
+                        .warning { 
+                            background: #fff3cd; 
+                            color: #856404; 
+                            padding: 15px; 
+                            border-radius: 6px; 
+                            border-left: 4px solid #ffc107; 
+                            margin: 20px 0; 
+                        }
+                        .footer { 
+                            text-align: center; 
+                            margin-top: 40px; 
+                            padding-top: 20px; 
+                            border-top: 1px solid #eee; 
+                            color: #666; 
+                            font-size: 14px; 
+                        }
+                        .btn { 
+                            display: inline-block; 
+                            background: #28a745; 
+                            color: white; 
+                            padding: 12px 30px; 
+                            text-decoration: none; 
+                            border-radius: 6px; 
+                            font-weight: bold; 
+                            margin: 10px 5px; 
+                        }
+                        .security-info { 
+                            background: #e7f3ff; 
+                            padding: 15px; 
+                            border-radius: 6px; 
+                            margin: 20px 0; 
+                            border-left: 4px solid #007bff; 
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <div class="logo">⚽ Halısaha App</div>
+                            <div class="title">Şifre Sıfırlama Talebi</div>
+                            <div class="subtitle">Güvenli şifre sıfırlama kodu</div>
+                        </div>
+                        
+                        <div class="content">
+                            <p>Merhaba <strong>${user.firstName} ${user.lastName}</strong>,</p>
+                            <p>Hesabınız için şifre sıfırlama talebinde bulundunuz. Aşağıdaki 6 haneli kodu kullanarak yeni şifrenizi oluşturabilirsiniz:</p>
+                        </div>
+                        
+                        <div class="reset-code">${resetToken}</div>
+                        
+                                                 <div class="warning">
+                             <strong>⚠️ Önemli Güvenlik Bilgisi:</strong><br>
+                             • Bu kod <strong>${turkishExpireTime}</strong> tarihine kadar geçerlidir<br>
+                             • Kodu kimseyle paylaşmayın<br>
+                             • Bu talebi siz yapmadıysanız, bu emaili görmezden gelin
+                         </div>
+                         
+                         <div class="security-info">
+                             <h4>🔒 Güvenlik Detayları:</h4>
+                             <ul>
+                                 <li><strong>Talep Zamanı:</strong> ${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })}</li>
+                                 <li><strong>Geçerlilik Bitiş:</strong> ${turkishExpireTime}</li>
+                                 <li><strong>Email:</strong> ${user.email}</li>
+                                 <li><strong>Kullanıcı:</strong> ${user.username}</li>
+                             </ul>
+                         </div>
+                        
+                        <div class="content">
+                            <h4>📱 Nasıl Kullanılır?</h4>
+                            <ol>
+                                <li>Halısaha App'te "Şifremi Unuttum" sayfasına gidin</li>
+                                <li>Yukarıdaki 6 haneli kodu girin</li>
+                                <li>Yeni şifrenizi belirleyin</li>
+                                <li>Güvenli giriş yapın</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="footer">
+                            <p>Bu email otomatik olarak gönderilmiştir, lütfen yanıtlamayın.</p>
+                            <p><strong>Halısaha Rezervasyon Platformu</strong> © 2025</p>
+                            <p>Güvenli, hızlı ve kolay halısaha rezervasyonu</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // Send reset email
+            const emailSent = await sendEmail(user.email, subject, htmlContent);
+
+            if (!emailSent) {
+                console.error('Failed to send reset password email');
+                return {
+                    success: false,
+                    error: 'Failed to send reset email',
+                    statusCode: 500,
+                };
+            }
+
+            console.log(`✅ Reset password email sent to: ${user.email}`);
+
+            return {
+                success: true,
+                statusCode: 200,
+            };
+        } catch (error) {
+            console.error('Error in forgot password:', error);
+            return {
+                success: false,
+                error: 'Failed to process forgot password request',
+                statusCode: 500,
+            };
+        }
+    }
+
+    async resetPassword(resetPasswordData: ResetPasswordDto): Promise<ServiceResponse> {
+        try {
+            const { token, newPassword } = resetPasswordData;
+
+            // Validate password strength (minimum 6 characters)
+            if (!newPassword || newPassword.length < 6) {
+                return {
+                    success: false,
+                    error: 'Password must be at least 6 characters long',
+                    statusCode: 400,
+                };
+            }
+
+            // Find user by reset token
+            const user = await prisma.user.findFirst({
+                where: {
+                    resetToken: token,
+                    resetTokenExpires: {
+                        gt: new Date() // Token must not be expired
+                    }
+                }
+            });
+
+            if (!user) {
+                return {
+                    success: false,
+                    error: 'Invalid or expired reset token',
+                    statusCode: 400,
+                };
+            }
+
+            // Check if user is active
+            if (!user.status) {
+                return {
+                    success: false,
+                    error: 'Account is deactivated. Please contact support.',
+                    statusCode: 403,
+                };
+            }
+
+            // Hash new password
+            const hashedPassword = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+
+            // Update user password and clear reset token
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    password: hashedPassword,
+                    resetToken: null,
+                    resetTokenExpires: null
+                }
+            });
+
+            // Send confirmation email
+            const subject = '✅ Halısaha App - Şifre Başarıyla Değiştirildi';
+            const confirmationHtml = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
+                        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+                        .header { text-align: center; margin-bottom: 30px; }
+                        .success { background: #d4edda; color: #155724; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
+                        .info { background: #e7f3ff; padding: 15px; border-radius: 6px; margin: 20px 0; }
+                        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1 style="color: #007bff;">⚽ Halısaha App</h1>
+                            <h2 style="color: #28a745;">Şifre Başarıyla Değiştirildi</h2>
+                        </div>
+                        
+                        <div class="success">
+                            <h3>✅ Başarılı!</h3>
+                            <p>Hesabınızın şifresi başarıyla değiştirilmiştir.</p>
+                        </div>
+                        
+                        <div class="info">
+                            <h4>📋 İşlem Detayları:</h4>
+                            <ul>
+                                <li><strong>Kullanıcı:</strong> ${user.firstName} ${user.lastName}</li>
+                                <li><strong>Email:</strong> ${user.email}</li>
+                                                                 <li><strong>Değişiklik Zamanı:</strong> ${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })}</li>
+                            </ul>
+                        </div>
+                        
+                        <p>Artık yeni şifrenizle hesabınıza giriş yapabilirsiniz.</p>
+                        
+                        <p><strong>Güvenlik:</strong> Bu değişikliği siz yapmadıysanız, lütfen derhal bizimle iletişime geçin.</p>
+                        
+                        <div class="footer">
+                            <p><strong>Halısaha Rezervasyon Platformu</strong> © 2025</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // Send confirmation email (don't fail if this fails)
+            try {
+                await sendEmail(user.email, subject, confirmationHtml);
+                console.log(`✅ Password reset confirmation email sent to: ${user.email}`);
+            } catch (emailError) {
+                console.error('Failed to send confirmation email:', emailError);
+                // Continue anyway, password reset was successful
+            }
+
+            console.log(`✅ Password reset successful for user: ${user.email}`);
+
+            return {
+                success: true,
+                statusCode: 200,
+            };
+        } catch (error) {
+            console.error('Error in reset password:', error);
+            return {
+                success: false,
+                error: 'Failed to reset password',
                 statusCode: 500,
             };
         }
