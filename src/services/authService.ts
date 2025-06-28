@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto } from '../types';
 import { prisma } from '../lib/prisma';
 import { sendEmail } from '../mail';
+import { UserSessionService } from './userSessionService';
 
 export class AuthService {
     private readonly JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
@@ -11,8 +12,9 @@ export class AuthService {
     private readonly ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || '15m';
     private readonly REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
     private readonly SALT_ROUNDS = 12;
+    private sessionService = new UserSessionService();
 
-    async register(userData: RegisterDto): Promise<ServiceResponse<AuthResponse>> {
+    async register(userData: RegisterDto, req?: any): Promise<ServiceResponse<AuthResponse>> {
         try {
             // Check if email or username already exists
             const existingUser = await prisma.user.findFirst({
@@ -110,11 +112,59 @@ export class AuthService {
                 }
             }
 
-            // Generate JWT tokens
-            const tokenPayload = {
+            // Generate session token
+            const sessionToken = this.sessionService.generateSessionToken();
+
+            // Get device info from request
+            const userAgent = req?.headers?.['user-agent'];
+            const deviceInfo = this.sessionService.parseDeviceInfo(userAgent);
+            const platform = this.sessionService.detectPlatform(userAgent || '');
+
+            // Get IP address
+            const ipAddress = req?.ip || req?.connection?.remoteAddress || req?.socket?.remoteAddress;
+
+            // Get location from IP (basic implementation)
+            const location = await this.sessionService.getLocationFromIP(ipAddress);
+
+            // Calculate token expiration
+            const expiresAt = new Date();
+            if (this.ACCESS_TOKEN_EXPIRES_IN.includes('m')) {
+                const minutes = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('m', ''));
+                expiresAt.setMinutes(expiresAt.getMinutes() + minutes);
+            } else if (this.ACCESS_TOKEN_EXPIRES_IN.includes('h')) {
+                const hours = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('h', ''));
+                expiresAt.setHours(expiresAt.getHours() + hours);
+            } else if (this.ACCESS_TOKEN_EXPIRES_IN.includes('d')) {
+                const days = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('d', ''));
+                expiresAt.setDate(expiresAt.getDate() + days);
+            }
+
+            // Create session
+            const sessionResult = await this.sessionService.createSession({
+                userId: newUser.id,
+                sessionToken,
+                deviceInfo,
+                ipAddress,
+                location,
+                platform,
+                expiresAt
+            });
+
+            if (!sessionResult.success) {
+                console.error('Failed to create session:', sessionResult.error);
+                return {
+                    success: false,
+                    error: 'Failed to create session',
+                    statusCode: 500,
+                };
+            }
+
+            // Generate JWT tokens with session token as jti
+            const tokenPayload: JwtPayload = {
                 userId: newUser.id,
                 email: newUser.email,
                 role: newUser.role as Role,
+                jti: sessionToken,
             };
 
             const accessToken = this.generateAccessToken(tokenPayload);
@@ -131,6 +181,12 @@ export class AuthService {
                     refreshToken,
                     accessTokenExpiresIn: this.ACCESS_TOKEN_EXPIRES_IN,
                     refreshTokenExpiresIn: this.REFRESH_TOKEN_EXPIRES_IN,
+                    sessionInfo: {
+                        sessionId: sessionResult.data!.id,
+                        deviceInfo: sessionResult.data!.deviceInfo,
+                        location: sessionResult.data!.location,
+                        platform: sessionResult.data!.platform,
+                    }
                 },
                 statusCode: 201,
             };
@@ -144,7 +200,7 @@ export class AuthService {
         }
     }
 
-    async login(loginData: LoginDto): Promise<ServiceResponse<AuthResponse>> {
+    async login(loginData: LoginDto, req?: any): Promise<ServiceResponse<AuthResponse>> {
         try {
             // Find user by username
             const user = await prisma.user.findUnique({
@@ -181,11 +237,59 @@ export class AuthService {
                 };
             }
 
-            // Generate JWT tokens
-            const tokenPayload = {
+            // Generate session token
+            const sessionToken = this.sessionService.generateSessionToken();
+
+            // Get device info from request
+            const userAgent = req?.headers?.['user-agent'];
+            const deviceInfo = this.sessionService.parseDeviceInfo(userAgent);
+            const platform = loginData.platform || this.sessionService.detectPlatform(userAgent || '');
+
+            // Get IP address
+            const ipAddress = req?.ip || req?.connection?.remoteAddress || req?.socket?.remoteAddress;
+
+            // Get location from IP (basic implementation)
+            const location = await this.sessionService.getLocationFromIP(ipAddress);
+
+            // Calculate token expiration
+            const expiresAt = new Date();
+            if (this.ACCESS_TOKEN_EXPIRES_IN.includes('m')) {
+                const minutes = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('m', ''));
+                expiresAt.setMinutes(expiresAt.getMinutes() + minutes);
+            } else if (this.ACCESS_TOKEN_EXPIRES_IN.includes('h')) {
+                const hours = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('h', ''));
+                expiresAt.setHours(expiresAt.getHours() + hours);
+            } else if (this.ACCESS_TOKEN_EXPIRES_IN.includes('d')) {
+                const days = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('d', ''));
+                expiresAt.setDate(expiresAt.getDate() + days);
+            }
+
+            // Create session
+            const sessionResult = await this.sessionService.createSession({
+                userId: user.id,
+                sessionToken,
+                deviceInfo,
+                ipAddress,
+                location,
+                platform,
+                expiresAt
+            });
+
+            if (!sessionResult.success) {
+                console.error('Failed to create session:', sessionResult.error);
+                return {
+                    success: false,
+                    error: 'Failed to create session',
+                    statusCode: 500,
+                };
+            }
+
+            // Generate JWT tokens with session token as jti
+            const tokenPayload: JwtPayload = {
                 userId: user.id,
                 email: user.email,
                 role: user.role as Role,
+                jti: sessionToken,
             };
 
             const accessToken = this.generateAccessToken(tokenPayload);
@@ -202,6 +306,12 @@ export class AuthService {
                     refreshToken,
                     accessTokenExpiresIn: this.ACCESS_TOKEN_EXPIRES_IN,
                     refreshTokenExpiresIn: this.REFRESH_TOKEN_EXPIRES_IN,
+                    sessionInfo: {
+                        sessionId: sessionResult.data!.id,
+                        deviceInfo: sessionResult.data!.deviceInfo,
+                        location: sessionResult.data!.location,
+                        platform: sessionResult.data!.platform,
+                    }
                 },
                 statusCode: 200,
             };

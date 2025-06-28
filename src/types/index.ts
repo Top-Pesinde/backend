@@ -93,6 +93,8 @@ export interface RegisterDto {
 export interface LoginDto {
     username: string;
     password: string;
+    deviceInfo?: string;
+    platform?: Platform;
 }
 
 export interface StatusChangeDto {
@@ -124,12 +126,19 @@ export interface AuthResponse {
     refreshToken: string;
     accessTokenExpiresIn: string;
     refreshTokenExpiresIn: string;
+    sessionInfo?: {
+        sessionId: string;
+        deviceInfo?: string;
+        location?: string;
+        platform?: Platform;
+    };
 }
 
 export interface JwtPayload {
     userId: string;
     email: string;
     role: Role;
+    jti?: string; // JWT ID - session token için
     iat?: number;
     exp?: number;
 }
@@ -409,4 +418,41 @@ export interface UpdateFcmTokenDto {
     platform?: Platform;
     deviceId?: string;
     isActive?: boolean;
+}
+
+// Session Management Types
+export interface UserSession {
+    id: string;
+    userId: string;
+    sessionToken: string;
+    deviceInfo?: string;
+    ipAddress?: string;
+    location?: string;
+    platform?: Platform;
+    isActive: boolean;
+    lastAccessedAt: Date;
+    expiresAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface SessionListDto {
+    sessions: {
+        id: string;
+        deviceInfo?: string;
+        ipAddress?: string;
+        location?: string;
+        platform?: Platform;
+        lastAccessedAt: Date;
+        createdAt: Date;
+        isCurrent: boolean;
+    }[];
+}
+
+export interface TerminateSessionDto {
+    sessionToken: string;
+}
+
+export interface TerminateOtherSessionsDto {
+    keepCurrent: boolean;
 }

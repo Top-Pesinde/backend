@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/authService';
-import { ApiResponse, RegisterDto, LoginDto, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto } from '../types';
+import { UserSessionService } from '../services/userSessionService';
+import { ApiResponse, RegisterDto, LoginDto, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto, TerminateSessionDto, TerminateOtherSessionsDto } from '../types';
 import { metricsService } from '../services/metricsService';
 
 const authService = new AuthService();
+const sessionService = new UserSessionService();
 
 export class AuthController {
     async register(req: Request, res: Response): Promise<void> {
@@ -58,7 +60,7 @@ export class AuthController {
                 }
             }
 
-            const result = await authService.register(userData);
+            const result = await authService.register(userData, req);
 
             const response: ApiResponse = {
                 success: result.success,
@@ -84,6 +86,9 @@ export class AuthController {
 
     async login(req: Request, res: Response): Promise<void> {
         try {
+            console.log('🔍 Login called with User-Agent:', req.headers['user-agent']);
+            console.log('🔍 Login called with IP:', req.ip);
+
             const loginData: LoginDto = req.body;
 
             // Record login attempt
@@ -101,7 +106,7 @@ export class AuthController {
                 return;
             }
 
-            const result = await authService.login(loginData);
+            const result = await authService.login(loginData, req);
 
             // Record metrics based on result
             if (result.success) {
@@ -537,21 +542,61 @@ export class AuthController {
 
     async logout(req: Request, res: Response): Promise<void> {
         try {
-            // In a stateless JWT system, logout is typically handled on the client side
-            // by simply removing the token. However, we can still provide a logout endpoint
-            // for consistency and potential future token blacklisting implementation.
+            // Get user from middleware
+            const user = (req as any).user;
+
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            // Get session token from JWT
+            const authHeader = req.headers.authorization;
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Authorization header not found',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const token = authHeader.substring(7);
+            const decodedToken = authService.verifyToken(token);
+
+            if (!decodedToken || !decodedToken.jti) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Invalid token',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            // Terminate the specific session
+            const result = await sessionService.terminateSession(decodedToken.jti);
 
             const response: ApiResponse = {
-                success: true,
-                message: 'Logout successful',
-                data: {
-                    message: 'Please remove the token from client storage'
-                },
+                success: result.success,
+                message: result.success ? 'Logout successful' : result.error || 'Failed to logout',
+                data: result.success ? {
+                    message: 'Session terminated successfully'
+                } : undefined,
                 timestamp: new Date().toISOString(),
-                statusCode: 200
+                statusCode: result.statusCode || 500
             };
 
-            res.status(200).json(response);
+            res.status(result.statusCode || 500).json(response);
         } catch (error) {
             const response: ApiResponse = {
                 success: false,
@@ -698,6 +743,380 @@ export class AuthController {
                 statusCode: 500
             };
 
+            res.status(500).json(response);
+        }
+    }
+
+    // Session Management Methods
+
+    async getUserSessions(req: Request, res: Response): Promise<void> {
+        try {
+            const user = (req as any).user;
+
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            // Get current session token for comparison
+            const authHeader = req.headers.authorization;
+            let currentSessionToken: string | undefined;
+
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                const token = authHeader.substring(7);
+                const decodedToken = authService.verifyToken(token);
+                currentSessionToken = decodedToken?.jti;
+            }
+
+            const result = await sessionService.getUserActiveSessions(user.id);
+
+            if (result.success) {
+                // Mark current session
+                const sessions = result.data!.map(session => ({
+                    id: session.id,
+                    deviceInfo: session.deviceInfo,
+                    ipAddress: session.ipAddress,
+                    location: session.location,
+                    platform: session.platform,
+                    lastAccessedAt: session.lastAccessedAt,
+                    createdAt: session.createdAt,
+                    isCurrent: session.sessionToken === currentSessionToken
+                }));
+
+                const response: ApiResponse = {
+                    success: true,
+                    message: 'User sessions retrieved successfully',
+                    data: { sessions },
+                    timestamp: new Date().toISOString(),
+                    statusCode: 200
+                };
+                res.status(200).json(response);
+            } else {
+                const response: ApiResponse = {
+                    success: false,
+                    message: result.error || 'Failed to get user sessions',
+                    timestamp: new Date().toISOString(),
+                    statusCode: result.statusCode || 500
+                };
+                res.status(result.statusCode || 500).json(response);
+            }
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+            res.status(500).json(response);
+        }
+    }
+
+    async terminateSession(req: Request, res: Response): Promise<void> {
+        try {
+            const user = (req as any).user;
+
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const { sessionToken }: TerminateSessionDto = req.body;
+
+            if (!sessionToken) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Session token is required',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            // Verify that the session belongs to the current user
+            const sessionValidation = await sessionService.validateAndUpdateSession(sessionToken);
+            if (!sessionValidation.success || sessionValidation.data?.userId !== user.id) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Session not found or unauthorized',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 404
+                };
+                res.status(404).json(response);
+                return;
+            }
+
+            const result = await sessionService.terminateSession(sessionToken);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success ? 'Session terminated successfully' : result.error || 'Failed to terminate session',
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode || 500
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+            res.status(500).json(response);
+        }
+    }
+
+    async terminateOtherSessions(req: Request, res: Response): Promise<void> {
+        try {
+            const user = (req as any).user;
+
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            // Get current session token
+            const authHeader = req.headers.authorization;
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Authorization header not found',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const token = authHeader.substring(7);
+            const decodedToken = authService.verifyToken(token);
+
+            if (!decodedToken || !decodedToken.jti) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Invalid token',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const result = await sessionService.terminateOtherUserSessions(user.id, decodedToken.jti);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success
+                    ? `${result.data?.terminatedCount || 0} other sessions terminated successfully`
+                    : result.error || 'Failed to terminate other sessions',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode || 500
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+            res.status(500).json(response);
+        }
+    }
+
+    async terminateAllSessions(req: Request, res: Response): Promise<void> {
+        try {
+            const user = (req as any).user;
+
+            if (!user) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const result = await sessionService.terminateAllUserSessions(user.id);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success
+                    ? `${result.data?.terminatedCount || 0} sessions terminated successfully`
+                    : result.error || 'Failed to terminate all sessions',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode || 500
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+            res.status(500).json(response);
+        }
+    }
+
+    // Admin Session Management Methods
+
+    async getSessionStats(req: Request, res: Response): Promise<void> {
+        try {
+            const user = (req as any).user;
+
+            if (!user || user.role !== 'ADMIN') {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Admin access required',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 403
+                };
+                res.status(403).json(response);
+                return;
+            }
+
+            const result = await sessionService.getSessionStats();
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success ? 'Session statistics retrieved successfully' : result.error || 'Failed to get session stats',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode || 500
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+            res.status(500).json(response);
+        }
+    }
+
+    async runComprehensiveCleanup(req: Request, res: Response): Promise<void> {
+        try {
+            const user = (req as any).user;
+
+            if (!user || user.role !== 'ADMIN') {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Admin access required',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 403
+                };
+                res.status(403).json(response);
+                return;
+            }
+
+            const result = await sessionService.comprehensiveSessionCleanup();
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success
+                    ? `Comprehensive cleanup completed: ${result.data?.totalDeleted || 0} sessions deleted`
+                    : result.error || 'Failed to run comprehensive cleanup',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode || 500
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+            res.status(500).json(response);
+        }
+    }
+
+    async cleanupUserSessions(req: Request, res: Response): Promise<void> {
+        try {
+            const user = (req as any).user;
+
+            if (!user || user.role !== 'ADMIN') {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Admin access required',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 403
+                };
+                res.status(403).json(response);
+                return;
+            }
+
+            const { userId, daysOld = 7 }: { userId: string; daysOld?: number } = req.body;
+
+            if (!userId) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'User ID is required',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            const result = await sessionService.cleanupUserOldSessions(userId, daysOld);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success
+                    ? `User sessions cleanup completed: ${result.data?.deletedCount || 0} sessions deleted`
+                    : result.error || 'Failed to cleanup user sessions',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode || 500
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
             res.status(500).json(response);
         }
     }

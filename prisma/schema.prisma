@@ -33,6 +33,7 @@ model User {
   goalkeeperListings GoalkeeperListing[]
   refereeListings    RefereeListing[]
   fcmTokens          FcmToken[]
+  userSessions       UserSession[]
   status             Boolean            @default(true)
 
   @@map("users")
@@ -178,6 +179,28 @@ model FcmToken {
   
   @@unique([userId, deviceId]) // Aynı kullanıcıdan aynı cihaz sadece bir token
   @@map("fcm_tokens")
+}
+
+model UserSession {
+  id             String    @id @default(cuid())
+  userId         String    @map("user_id")
+  sessionToken   String    @unique @map("session_token") // JWT jti claim'i
+  deviceInfo     String?   @map("device_info") // User-Agent ve cihaz bilgileri
+  ipAddress      String?   @map("ip_address") // IP adresi
+  location       String?   // Şehir/ülke bilgisi
+  platform       Platform? // iOS, Android, Web
+  isActive       Boolean   @default(true) @map("is_active")
+  lastAccessedAt DateTime  @default(now()) @map("last_accessed_at")
+  expiresAt      DateTime  @map("expires_at") // Token sona erme zamanı
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, isActive]) // Kullanıcının aktif session'larını hızlı getirmek için
+  @@index([sessionToken]) // Token ile arama için
+  @@index([expiresAt]) // Süresi dolmuş session'ları temizlemek için
+  @@map("user_sessions")
 }
 
 enum Role {

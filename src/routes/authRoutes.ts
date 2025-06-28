@@ -71,4 +71,29 @@ router.put('/contact-info', authenticateToken, authController.updateContactInfo.
 // DELETE /api/auth/profile-photo - Kullanıcı profil fotoğrafı silme (korumalı)
 router.delete('/profile-photo', authenticateToken, authController.deleteProfilePhoto.bind(authController));
 
+// Session Management Routes (korumalı)
+
+// GET /api/auth/sessions - Kullanıcının aktif oturumlarını listele
+router.get('/sessions', authenticateToken, authController.getUserSessions.bind(authController));
+
+// POST /api/auth/sessions/terminate - Belirli bir oturumu sonlandır
+router.post('/sessions/terminate', authenticateToken, authController.terminateSession.bind(authController));
+
+// POST /api/auth/sessions/terminate-others - Diğer oturumları sonlandır (mevcut hariç)
+router.post('/sessions/terminate-others', authenticateToken, authController.terminateOtherSessions.bind(authController));
+
+// POST /api/auth/sessions/terminate-all - Tüm oturumları sonlandır
+router.post('/sessions/terminate-all', authenticateToken, authController.terminateAllSessions.bind(authController));
+
+// Admin Session Management Routes (ADMIN only)
+
+// GET /api/auth/admin/sessions/stats - Session istatistiklerini getir
+router.get('/admin/sessions/stats', authenticateToken, authController.getSessionStats.bind(authController));
+
+// POST /api/auth/admin/sessions/cleanup - Kapsamlı session temizleme
+router.post('/admin/sessions/cleanup', authenticateToken, authController.runComprehensiveCleanup.bind(authController));
+
+// POST /api/auth/admin/sessions/cleanup-user - Belirli kullanıcının session'larını temizle
+router.post('/admin/sessions/cleanup-user', authenticateToken, authController.cleanupUserSessions.bind(authController));
+
 export { router as authRoutes };
