@@ -91,7 +91,15 @@ jobs:
           
           echo "✅ Database setup completed"
 
-      # 6. Start MinIO & Wait for Services  
+      # 6. Install Redis CLI
+      - name: 📦 Install Redis CLI
+        run: |
+          echo "📦 Installing Redis CLI..."
+          sudo apt-get update
+          sudo apt-get install -y redis-tools
+          echo "✅ Redis CLI installed"
+
+      # 7. Start MinIO & Wait for Services  
       - name: ⏳ Setup MinIO & Wait for Services
         run: |
           echo "🗄️ Starting MinIO server..."
@@ -123,20 +131,20 @@ jobs:
           done
           echo "✅ MinIO ready"
 
-      # 7. Build Project
+      # 8. Build Project
       - name: 🔨 Build Project
         run: |
           npm run build
           echo "✅ Project built successfully"
 
-      # 8. Run Tests
+      # 9. Run Tests
       - name: 🧪 Run Tests
         run: |
           echo "🚀 Running all tests..."
           npm run test:ci
           echo "✅ Tests completed"
 
-      # 9. API Health Check
+      # 10. API Health Check
       - name: 🏥 API Health Check
         run: |
           echo "🚀 Starting server for health check..."
@@ -153,7 +161,7 @@ jobs:
           kill $SERVER_PID
           echo "✅ API health check passed"
 
-      # 10. Forget Password API Test
+      # 11. Forget Password API Test
       - name: 🔐 Test Forget Password Feature
         run: |
           echo "🚀 Starting server for Forget Password test..."
@@ -182,7 +190,7 @@ jobs:
           kill $SERVER_PID
           echo "✅ Forget Password feature test completed"
 
-      # 11. Upload Coverage
+      # 12. Upload Coverage
       - name: 📊 Upload Coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
@@ -191,7 +199,7 @@ jobs:
           fail_ci_if_error: false
           verbose: true
 
-      # 12. Upload Test Results
+      # 13. Upload Test Results
       - name: 📋 Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
