@@ -492,7 +492,7 @@ export class FieldListingService {
         pagination: PaginationParams
     ): Promise<ServiceResponse<PaginatedResponse<FieldListing>>> {
         try {
-            const { page, limit, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+            const { page, limit, sortBy = 'fieldName', sortOrder = 'asc' } = pagination;
             const skip = (page - 1) * limit;
 
             // Filtre koşulları oluştur
@@ -540,7 +540,45 @@ export class FieldListingService {
             // Toplam sayı
             const total = await prisma.fieldListing.count({ where });
 
-            // Veriyi getir
+            // Sıralama seçeneklerini belirle
+            let orderByClause: any[] = [{ featured: 'desc' }];
+
+            // Alfabetik sıralama seçenekleri
+            switch (sortBy) {
+                case 'name':
+                case 'firstName':
+                    orderByClause.push({ user: { firstName: sortOrder } });
+                    break;
+                case 'lastName':
+                    orderByClause.push({ user: { lastName: sortOrder } });
+                    break;
+                case 'fullName':
+                    // İsim + soyisim birlikte sıralama
+                    orderByClause.push({ user: { firstName: sortOrder } });
+                    orderByClause.push({ user: { lastName: sortOrder } });
+                    break;
+                case 'fieldName':
+                case 'title':
+                    orderByClause.push({ fieldName: sortOrder });
+                    break;
+                case 'location':
+                case 'fieldAddress':
+                    orderByClause.push({ fieldAddress: sortOrder });
+                    break;
+                case 'hourlyPrice':
+                case 'price':
+                    orderByClause.push({ hourlyPrice: sortOrder });
+                    break;
+                case 'surfaceType':
+                    orderByClause.push({ surfaceType: sortOrder });
+                    break;
+                case 'createdAt':
+                default:
+                    orderByClause.push({ createdAt: sortOrder });
+                    break;
+            }
+
+            // Veriyi getir - Featured ilanlar önce, sonra normal sıralama
             const fieldListings = await prisma.fieldListing.findMany({
                 where,
                 include: {
@@ -567,9 +605,7 @@ export class FieldListingService {
                     },
                     subFields: true
                 },
-                orderBy: {
-                    [sortBy]: sortOrder
-                },
+                orderBy: orderByClause,
                 skip,
                 take: limit
             });
@@ -727,6 +763,99 @@ export class FieldListingService {
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Halısaha ilanı silme başarısız'
+            };
+        }
+    }
+
+    // İlanı öne çıkan yap
+    async setFeaturedStatus(fieldId: string, featured: boolean): Promise<ServiceResponse<void>> {
+        try {
+            const existingListing = await prisma.fieldListing.findUnique({
+                where: { id: fieldId }
+            });
+
+            if (!existingListing) {
+                return {
+                    success: false,
+                    error: 'Halısaha ilanı bulunamadı',
+                    statusCode: 404
+                };
+            }
+
+            await prisma.fieldListing.update({
+                where: { id: fieldId },
+                data: { featured }
+            });
+
+            return {
+                success: true
+            };
+
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'İlan öne çıkan durumu güncellenirken hata oluştu'
+            };
+        }
+    }
+
+    // Öne çıkan ilanları getir
+    async getFeaturedFieldListings(): Promise<ServiceResponse<FieldListing[]>> {
+        try {
+            const featuredListings = await prisma.fieldListing.findMany({
+                where: {
+                    isActive: true,
+                    featured: true
+                },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                            email: true,
+                            phone: true,
+                            location: true,
+                            bio: true,
+                            profilePhoto: true,
+                            role: true,
+                            createdAt: true,
+                            updatedAt: true
+                        }
+                    },
+                    schedules: true,
+                    features: true,
+                    photos: {
+                        orderBy: { photoOrder: 'asc' }
+                    },
+                    subFields: true
+                },
+                orderBy: [
+                    { featured: 'desc' },
+                    { createdAt: 'desc' }
+                ]
+            });
+
+            const formattedListings: any[] = featuredListings.map(listing => ({
+                ...listing,
+                description: listing.description || undefined,
+                hourlyPrice: Number(listing.hourlyPrice),
+                subFields: listing.subFields.map(subField => ({
+                    ...subField,
+                    hourlyPrice: Number(subField.hourlyPrice)
+                }))
+            }));
+
+            return {
+                success: true,
+                data: formattedListings
+            };
+
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Öne çıkan ilanlar getirme başarısız'
             };
         }
     }

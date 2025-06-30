@@ -68,6 +68,19 @@ export const authenticateToken = async (
                 return;
             }
 
+            // Check if session is close to expiring (within 1 day) and refresh it
+            const session = sessionResult.data;
+            if (session && session.expiresAt) {
+                const now = new Date();
+                const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+                // If session expires within 1 day, refresh it
+                if (session.expiresAt < oneDayFromNow) {
+                    const newExpiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+                    await sessionService.refreshSessionToken(payload.jti, newExpiresAt);
+                }
+            }
+
             // Session is valid, user info is already validated by session service
             // Use the userId from session validation for extra security
             if (sessionResult.data?.userId !== payload.userId) {

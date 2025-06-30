@@ -7,6 +7,8 @@ import fieldListingRoutes from './fieldListingRoutes';
 import goalkeeperRoutes from './goalkeeperRoutes';
 import refereeRoutes from './refereeRoutes';
 import fcmTokenRoutes from './fcmTokenRoutes';
+import adminListingRoutes from './adminListingRouter';
+import listingDetailRoutes from './listingDetailRoutes';
 
 const router = Router();
 
@@ -17,7 +19,9 @@ router.use('/v1/users', userRoutes);
 router.use('/v1/field-listings', fieldListingRoutes);
 router.use('/v1/goalkeeper-listings', goalkeeperRoutes);
 router.use('/v1/referee-listings', refereeRoutes);
+router.use('/v1/listings', listingDetailRoutes);
 router.use('/v1/fcm-tokens', fcmTokenRoutes);
+router.use('/v1/admin', adminListingRoutes);
 
 // Monitoring routes (no version prefix)
 router.use('/', metricsRoutes);
@@ -90,10 +94,20 @@ router.get('/', (req, res) => {
                 update: 'PUT /api/v1/referee-listings/:id (Update referee listing)',
                 delete: 'DELETE /api/v1/referee-listings/:id (Delete referee listing)',
             },
+            listings: {
+                getDetailAuto: 'GET /api/v1/listings/:id (Get listing detail with automatic type detection)',
+                getDetailByType: 'GET /api/v1/listings/:type/:id (Get listing detail by type and ID)',
+            },
             fcmTokens: {
                 upsert: 'POST /api/v1/fcm-tokens (Create or update FCM token)',
                 getMy: 'GET /api/v1/fcm-tokens (Get current user\'s FCM tokens)',
                 delete: 'DELETE /api/v1/fcm-tokens/:tokenId (Delete FCM token)',
+            },
+            admin: {
+                setListingFeatured: 'POST /api/v1/admin/listings/:type/:id/feature (Set listing featured status - ADMIN only)',
+                getListingFeaturedStatus: 'GET /api/v1/admin/listings/:type/:id/feature (Get listing featured status - ADMIN only)',
+                setUserAllListingsFeatured: 'POST /api/v1/admin/users/:userId/listings/feature (Set all user listings featured - ADMIN only)',
+                setUserListingsByTypeFeatured: 'POST /api/v1/admin/users/:userId/listings/:type/feature (Set user listings by type featured - ADMIN only)',
             },
             health: '/health',
             metrics: '/metrics (Prometheus metrics)',

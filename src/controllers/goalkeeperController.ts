@@ -96,8 +96,8 @@ export class GoalkeeperController {
             // Pagination parametreleri
             const page = parseInt(req.query.page as string) || 1;
             const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
-            const sortBy = req.query.sortBy as string || 'createdAt';
-            const sortOrder = (req.query.sortOrder as string || 'desc') as 'asc' | 'desc';
+            const sortBy = req.query.sortBy as string || 'title';
+            const sortOrder = (req.query.sortOrder as string || 'asc') as 'asc' | 'desc';
 
             const paginationParams: PaginationParams = {
                 page,

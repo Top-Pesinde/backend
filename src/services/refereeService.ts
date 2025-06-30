@@ -116,7 +116,7 @@ export class RefereeService {
         filters: ServiceListingFilterDto = {}
     ): Promise<ServiceResponse<{ data: RefereeListing[]; pagination: any }>> {
         try {
-            const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = params;
+            const { page = 1, limit = 10, sortBy = 'title', sortOrder = 'asc' } = params;
             const skip = (page - 1) * limit;
 
             // Filter koşulları oluştur
@@ -152,12 +152,45 @@ export class RefereeService {
             // Toplam kayıt sayısını al
             const total = await prisma.refereeListing.count({ where });
 
+            // Sıralama seçeneklerini belirle
+            let orderByClause: any[] = [{ featured: 'desc' }];
+
+            // Alfabetik sıralama seçenekleri
+            switch (sortBy) {
+                case 'name':
+                case 'firstName':
+                    orderByClause.push({ user: { firstName: sortOrder } });
+                    break;
+                case 'lastName':
+                    orderByClause.push({ user: { lastName: sortOrder } });
+                    break;
+                case 'fullName':
+                    // İsim + soyisim birlikte sıralama
+                    orderByClause.push({ user: { firstName: sortOrder } });
+                    orderByClause.push({ user: { lastName: sortOrder } });
+                    break;
+                case 'title':
+                    orderByClause.push({ title: sortOrder });
+                    break;
+                case 'location':
+                    orderByClause.push({ location: sortOrder });
+                    break;
+                case 'hourlyPrice':
+                case 'price':
+                    orderByClause.push({ hourlyPrice: sortOrder });
+                    break;
+                case 'createdAt':
+                default:
+                    orderByClause.push({ createdAt: sortOrder });
+                    break;
+            }
+
             // İlanları getir
             const listings = await prisma.refereeListing.findMany({
                 where,
                 skip,
                 take: limit,
-                orderBy: { [sortBy]: sortOrder },
+                orderBy: orderByClause,
                 include: {
                     user: {
                         select: {
@@ -506,21 +539,13 @@ export class RefereeService {
             if (existingListing.userId !== userId) {
                 return {
                     success: false,
-                    error: 'Bu ilanı deaktifleştirme yetkiniz yok',
+                    error: 'Bu işlem için yetkiniz bulunmuyor',
                     statusCode: 403
                 };
             }
 
-            if (!existingListing.isActive) {
-                return {
-                    success: false,
-                    error: 'İlan zaten pasif durumda',
-                    statusCode: 400
-                };
-            }
-
-            // İlanı deaktifleştir
-            const deactivatedListing = await prisma.refereeListing.update({
+            // İlanı deaktif et
+            const updatedListing = await prisma.refereeListing.update({
                 where: { id },
                 data: { isActive: false },
                 include: {
@@ -542,14 +567,92 @@ export class RefereeService {
 
             return {
                 success: true,
-                data: this.enhanceListingData(deactivatedListing) as any,
+                data: this.enhanceListingData(updatedListing) as any,
                 statusCode: 200
             };
         } catch (error) {
             console.error('RefereeService.deactivateRefereeListing error:', error);
             return {
                 success: false,
-                error: 'Hakem ilanı deaktifleştirilirken bir hata oluştu',
+                error: 'Hakem ilanı deaktif edilirken bir hata oluştu',
+                statusCode: 500
+            };
+        }
+    }
+
+    // İlanı öne çıkan yap
+    async setFeaturedStatus(id: string, featured: boolean): Promise<ServiceResponse<void>> {
+        try {
+            const existingListing = await prisma.refereeListing.findUnique({
+                where: { id }
+            });
+
+            if (!existingListing) {
+                return {
+                    success: false,
+                    error: 'Hakem ilanı bulunamadı',
+                    statusCode: 404
+                };
+            }
+
+            await prisma.refereeListing.update({
+                where: { id },
+                data: { featured }
+            });
+
+            return {
+                success: true
+            };
+
+        } catch (error) {
+            console.error('RefereeService.setFeaturedStatus error:', error);
+            return {
+                success: false,
+                error: 'İlan öne çıkan durumu güncellenirken hata oluştu'
+            };
+        }
+    }
+
+    // Öne çıkan hakem ilanlarını getir
+    async getFeaturedRefereeListings(): Promise<ServiceResponse<RefereeListing[]>> {
+        try {
+            const featuredListings = await prisma.refereeListing.findMany({
+                where: {
+                    isActive: true,
+                    featured: true
+                },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                            email: true,
+                            phone: true,
+                            profilePhoto: true,
+                            role: true,
+                            createdAt: true
+                        }
+                    }
+                },
+                orderBy: [
+                    { featured: 'desc' },
+                    { createdAt: 'desc' }
+                ]
+            });
+
+            return {
+                success: true,
+                data: featuredListings.map(listing => this.enhanceListingData(listing)) as any[],
+                statusCode: 200
+            };
+
+        } catch (error) {
+            console.error('RefereeService.getFeaturedRefereeListings error:', error);
+            return {
+                success: false,
+                error: 'Öne çıkan hakem ilanları getirilirken bir hata oluştu',
                 statusCode: 500
             };
         }

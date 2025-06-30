@@ -65,6 +65,7 @@ model FieldListing {
   contactType      ContactType     @map("contact_type") @default(PHONE)
   description      String?
   isActive         Boolean         @default(true) @map("is_active")
+  featured         Boolean         @default(false) // Öne çıkan ilan
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
   
@@ -137,6 +138,7 @@ model GoalkeeperListing {
   phone       String
   contactType ContactType @map("contact_type") @default(PHONE)
   isActive    Boolean     @default(true) @map("is_active")
+  featured    Boolean     @default(false) // Öne çıkan ilan
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
   
@@ -157,6 +159,7 @@ model RefereeListing {
   phone       String
   contactType ContactType @map("contact_type") @default(PHONE)
   isActive    Boolean     @default(true) @map("is_active")
+  featured    Boolean     @default(false) // Öne çıkan ilan
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
   

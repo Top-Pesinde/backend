@@ -191,14 +191,14 @@ class FieldListingController {
                 // Güncellenmiş halısaha bilgilerini getir
                 const updatedListing = await fieldListingService.getFieldListingById(fieldId);
 
-            const response: ApiResponse = {
-                success: true,
+                const response: ApiResponse = {
+                    success: true,
                     message: 'Halısaha ilanı ve fotoğrafları başarıyla oluşturuldu',
                     data: updatedListing.data,
-                timestamp: new Date().toISOString(),
-                statusCode: 201
-            };
-            res.status(201).json(response);
+                    timestamp: new Date().toISOString(),
+                    statusCode: 201
+                };
+                res.status(201).json(response);
 
             } catch (photoError) {
                 // Fotoğraf yükleme hatasını logla
@@ -485,8 +485,8 @@ class FieldListingController {
             // Pagination parametreleri
             const page = parseInt(req.query.page as string) || 1;
             const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
-            const sortBy = req.query.sortBy as string || 'createdAt';
-            const sortOrder = (req.query.sortOrder as string) === 'asc' ? 'asc' : 'desc';
+            const sortBy = req.query.sortBy as string || 'fieldName';
+            const sortOrder = (req.query.sortOrder as string) === 'asc' ? 'asc' : 'asc';
 
             const pagination: PaginationParams = {
                 page,

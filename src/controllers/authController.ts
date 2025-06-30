@@ -780,6 +780,7 @@ export class AuthController {
                 // Mark current session
                 const sessions = result.data!.map(session => ({
                     id: session.id,
+                    sessionToken: session.sessionToken,
                     deviceInfo: session.deviceInfo,
                     ipAddress: session.ipAddress,
                     location: session.location,

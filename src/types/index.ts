@@ -88,13 +88,24 @@ export interface RegisterDto {
     lisans?: boolean; // Now configurable for GOALKEEPER and REFEREE
     role: Role;
     documents?: any[]; // Multer file objects
+    deviceName?: string;    // Örn: "iPhone 15", "Samsung Galaxy S23", "Windows PC"
+    browserName?: string;   // Örn: "Safari", "Chrome", "Firefox"
+    platform?: Platform;    // IOS, ANDROID, WEB
+    latitude?: number;      // Enlem (örn: 41.0082)
+    longitude?: number;     // Boylam (örn: 28.9784)
+    sessionLocation?: string; // Eski uyumluluk için
 }
 
 export interface LoginDto {
     username: string;
     password: string;
-    deviceInfo?: string;
-    platform?: Platform;
+    deviceName?: string;    // Örn: "iPhone 15", "Samsung Galaxy S23", "Windows PC"
+    browserName?: string;   // Örn: "Safari", "Chrome", "Firefox"
+    platform?: Platform;    // IOS, ANDROID, WEB
+    deviceInfo?: string;    // Eski uyumluluk için
+    latitude?: number;      // Enlem (örn: 41.0082)
+    longitude?: number;     // Boylam (örn: 28.9784)
+    location?: string;      // Eski uyumluluk için (şehir adı)
 }
 
 export interface StatusChangeDto {
@@ -128,9 +139,9 @@ export interface AuthResponse {
     refreshTokenExpiresIn: string;
     sessionInfo?: {
         sessionId: string;
-        deviceInfo?: string;
-        location?: string;
-        platform?: Platform;
+        deviceInfo: string | null;
+        location: string | null;
+        platform: Platform | null;
     };
 }
 

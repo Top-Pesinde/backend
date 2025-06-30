@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto } from '../types';
+import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto, Platform } from '../types';
 import { prisma } from '../lib/prisma';
 import { sendEmail } from '../mail';
 import { UserSessionService } from './userSessionService';
@@ -115,28 +115,54 @@ export class AuthService {
             // Generate session token
             const sessionToken = this.sessionService.generateSessionToken();
 
-            // Get device info from request
-            const userAgent = req?.headers?.['user-agent'];
-            const deviceInfo = this.sessionService.parseDeviceInfo(userAgent);
-            const platform = this.sessionService.detectPlatform(userAgent || '');
+            // Device bilgilerini al - User-Agent yerine direkt gelen bilgileri kullan
+            let deviceInfo: string | null = null;
+            let platform: Platform | null = null;
+
+            // Eğer deviceName veya browserName varsa, onları kullan
+            if (userData.deviceName || userData.browserName) {
+                deviceInfo = this.sessionService.parseDeviceInfo(
+                    undefined, // User-Agent kullanmıyoruz
+                    userData.deviceName,
+                    userData.browserName
+                );
+                platform = userData.platform || null;
+            } else {
+                // Fallback: User-Agent'dan parse et (eski uyumluluk için)
+                const userAgent = req?.headers?.['user-agent'];
+                deviceInfo = this.sessionService.parseDeviceInfo(userAgent);
+                platform = userData.platform || this.sessionService.detectPlatform(userAgent || '');
+            }
 
             // Get IP address
             const ipAddress = req?.ip || req?.connection?.remoteAddress || req?.socket?.remoteAddress;
 
-            // Get location from IP (basic implementation)
-            const location = await this.sessionService.getLocationFromIP(ipAddress);
+            // Get location - koordinatlardan, sonra frontend'den, sonra IP'den
+            let location: string | null = null;
+            if (userData.latitude && userData.longitude) {
+                // Koordinatlardan şehir adını al
+                location = await this.sessionService.getLocationFromCoordinates(
+                    userData.latitude,
+                    userData.longitude
+                );
+            } else if (userData.sessionLocation) {
+                // Eski uyumluluk için string location
+                location = userData.sessionLocation;
+            } else {
+                // IP'den tahmin et
+                location = await this.sessionService.getLocationFromIP(ipAddress);
+            }
 
-            // Calculate token expiration
-            const expiresAt = new Date();
-            if (this.ACCESS_TOKEN_EXPIRES_IN.includes('m')) {
-                const minutes = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('m', ''));
-                expiresAt.setMinutes(expiresAt.getMinutes() + minutes);
-            } else if (this.ACCESS_TOKEN_EXPIRES_IN.includes('h')) {
-                const hours = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('h', ''));
-                expiresAt.setHours(expiresAt.getHours() + hours);
-            } else if (this.ACCESS_TOKEN_EXPIRES_IN.includes('d')) {
-                const days = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('d', ''));
-                expiresAt.setDate(expiresAt.getDate() + days);
+            const sessionExpiresAt = new Date();
+            if (this.REFRESH_TOKEN_EXPIRES_IN.includes('m')) {
+                const minutes = parseInt(this.REFRESH_TOKEN_EXPIRES_IN.replace('m', ''));
+                sessionExpiresAt.setMinutes(sessionExpiresAt.getMinutes() + minutes);
+            } else if (this.REFRESH_TOKEN_EXPIRES_IN.includes('h')) {
+                const hours = parseInt(this.REFRESH_TOKEN_EXPIRES_IN.replace('h', ''));
+                sessionExpiresAt.setHours(sessionExpiresAt.getHours() + hours);
+            } else if (this.REFRESH_TOKEN_EXPIRES_IN.includes('d')) {
+                const days = parseInt(this.REFRESH_TOKEN_EXPIRES_IN.replace('d', ''));
+                sessionExpiresAt.setDate(sessionExpiresAt.getDate() + days);
             }
 
             // Create session
@@ -147,7 +173,7 @@ export class AuthService {
                 ipAddress,
                 location,
                 platform,
-                expiresAt
+                expiresAt: sessionExpiresAt
             });
 
             if (!sessionResult.success) {
@@ -240,28 +266,55 @@ export class AuthService {
             // Generate session token
             const sessionToken = this.sessionService.generateSessionToken();
 
-            // Get device info from request
-            const userAgent = req?.headers?.['user-agent'];
-            const deviceInfo = this.sessionService.parseDeviceInfo(userAgent);
-            const platform = loginData.platform || this.sessionService.detectPlatform(userAgent || '');
+            // Device bilgilerini al - User-Agent yerine direkt gelen bilgileri kullan
+            let deviceInfo: string | null = null;
+            let platform: Platform | null = null;
+
+            // Eğer deviceName veya browserName varsa, onları kullan
+            if (loginData.deviceName || loginData.browserName) {
+                deviceInfo = this.sessionService.parseDeviceInfo(
+                    undefined, // User-Agent kullanmıyoruz
+                    loginData.deviceName,
+                    loginData.browserName
+                );
+                platform = loginData.platform || null;
+            } else {
+                // Fallback: User-Agent'dan parse et (eski uyumluluk için)
+                const userAgent = req?.headers?.['user-agent'];
+                deviceInfo = this.sessionService.parseDeviceInfo(userAgent);
+                platform = loginData.platform || this.sessionService.detectPlatform(userAgent || '');
+            }
 
             // Get IP address
             const ipAddress = req?.ip || req?.connection?.remoteAddress || req?.socket?.remoteAddress;
 
-            // Get location from IP (basic implementation)
-            const location = await this.sessionService.getLocationFromIP(ipAddress);
+            // Get location - koordinatlardan, sonra frontend'den, sonra IP'den
+            let location: string | null = null;
+            if (loginData.latitude && loginData.longitude) {
+                // Koordinatlardan şehir adını al
+                location = await this.sessionService.getLocationFromCoordinates(
+                    loginData.latitude,
+                    loginData.longitude
+                );
+            } else if (loginData.location) {
+                // Eski uyumluluk için string location
+                location = loginData.location;
+            } else {
+                // IP'den tahmin et
+                location = await this.sessionService.getLocationFromIP(ipAddress);
+            }
 
-            // Calculate token expiration
-            const expiresAt = new Date();
-            if (this.ACCESS_TOKEN_EXPIRES_IN.includes('m')) {
-                const minutes = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('m', ''));
-                expiresAt.setMinutes(expiresAt.getMinutes() + minutes);
-            } else if (this.ACCESS_TOKEN_EXPIRES_IN.includes('h')) {
-                const hours = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('h', ''));
-                expiresAt.setHours(expiresAt.getHours() + hours);
-            } else if (this.ACCESS_TOKEN_EXPIRES_IN.includes('d')) {
-                const days = parseInt(this.ACCESS_TOKEN_EXPIRES_IN.replace('d', ''));
-                expiresAt.setDate(expiresAt.getDate() + days);
+            // Calculate session expiration (same as refresh token - 7 days)
+            const sessionExpiresAt = new Date();
+            if (this.REFRESH_TOKEN_EXPIRES_IN.includes('m')) {
+                const minutes = parseInt(this.REFRESH_TOKEN_EXPIRES_IN.replace('m', ''));
+                sessionExpiresAt.setMinutes(sessionExpiresAt.getMinutes() + minutes);
+            } else if (this.REFRESH_TOKEN_EXPIRES_IN.includes('h')) {
+                const hours = parseInt(this.REFRESH_TOKEN_EXPIRES_IN.replace('h', ''));
+                sessionExpiresAt.setHours(sessionExpiresAt.getHours() + hours);
+            } else if (this.REFRESH_TOKEN_EXPIRES_IN.includes('d')) {
+                const days = parseInt(this.REFRESH_TOKEN_EXPIRES_IN.replace('d', ''));
+                sessionExpiresAt.setDate(sessionExpiresAt.getDate() + days);
             }
 
             // Create session
@@ -272,7 +325,7 @@ export class AuthService {
                 ipAddress,
                 location,
                 platform,
-                expiresAt
+                expiresAt: sessionExpiresAt
             });
 
             if (!sessionResult.success) {
@@ -447,6 +500,29 @@ export class AuthService {
                     error: 'Invalid refresh token',
                     statusCode: 401,
                 };
+            }
+
+            // Session token'ı da kontrol et ve yenile
+            if (payload.jti) {
+                const sessionValidation = await this.sessionService.validateAndUpdateSession(payload.jti);
+                if (!sessionValidation.success) {
+                    return {
+                        success: false,
+                        error: 'Session is invalid or expired',
+                        statusCode: 401,
+                    };
+                }
+
+                // Session token'ın expire süresini uzat (7 gün)
+                const newSessionExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                const sessionRefresh = await this.sessionService.refreshSessionToken(payload.jti, newSessionExpiresAt);
+                if (!sessionRefresh.success) {
+                    return {
+                        success: false,
+                        error: 'Failed to refresh session',
+                        statusCode: 500,
+                    };
+                }
             }
 
             // Generate new tokens
@@ -855,8 +931,11 @@ export class AuthService {
 
                 normalizedPhone = this.normalizePhoneNumber(contactData.phone);
 
+                // Normalize existing user's phone for comparison
+                const existingUserNormalizedPhone = this.normalizePhoneNumber(existingUser.phone);
+
                 // Check if phone already exists (exclude current user)
-                if (normalizedPhone !== existingUser.phone) {
+                if (normalizedPhone !== existingUserNormalizedPhone) {
                     const phoneExists = await prisma.user.findFirst({
                         where: {
                             phone: normalizedPhone,
