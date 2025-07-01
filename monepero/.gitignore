@@ -40,4 +40,22 @@ coverage/
 .nyc_output/
 
 # Cache
-.cache/ 
+.cache/
+
+# Docker volumes (don't commit volume data)
+postgres_data/
+redis_data/
+minio_data/
+grafana_data/
+prometheus_data/
+pgadmin_data/
+
+# Backup files
+*.backup
+*.bak
+
+# MinIO data
+data/
+
+# Prisma
+prisma/migrations/.migrations_history 

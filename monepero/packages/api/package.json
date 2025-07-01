@@ -25,7 +25,16 @@
         "db:studio": "prisma studio",
         "db:seed": "ts-node prisma/seed.ts",
         "setup:remote": "./scripts/setup-remote.sh",
-        "setup:local": "cp .env.example .env"
+        "setup:local": "cp .env.example .env",
+        "services:start": "docker-compose up -d",
+        "services:start:remote": "./scripts/start-remote-services.sh",
+        "services:stop": "docker-compose down",
+        "services:stop:remote": "docker-compose -f docker-compose.remote.yml down",
+        "minio:console": "echo 'MinIO Console: http://localhost:9001 (local) or http://YOUR_SERVER_IP:9001 (remote)'",
+        "server:ip": "./scripts/get-server-ip.sh",
+        "server:firewall": "./scripts/setup-firewall.sh",
+        "server:check": "./scripts/check-remote-services.sh",
+        "remote:start": "./scripts/start-all-remote.sh"
     },
     "prisma": {
         "seed": "ts-node prisma/seed.ts"

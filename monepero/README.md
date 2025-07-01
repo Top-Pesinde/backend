@@ -1,16 +1,28 @@
-# Monepero
+# 🚀 Monepero
 
-Turborepo ile yönetilen monorepo projesi.
+Express.js API monorepo projesi - Turborepo ile yönetilen, PostgreSQL, Redis ve MinIO destekli modern web API.
 
-## Kurulum
+## 🚀 Hızlı Başlangıç
 
 ```bash
-# Bağımlılıkları yükle
+# 1. Dependencies yükle
 npm install
 
-# Turbo'yu global olarak yükle (opsiyonel)
-npm install -g turbo
+# 2. Local environment ayarla
+npm run setup:local
+
+# 3. Docker servisleri başlat
+npm run services:start
+
+# 4. Database setup
+npm run db:generate
+npm run db:migrate
+
+# 5. Development mode
+npm run dev
 ```
+
+**Detaylı kurulum için:** [LOCAL_SETUP.md](./LOCAL_SETUP.md)
 
 ## Geliştirme
 
@@ -55,9 +67,22 @@ npm run db:push
 npm run db:migrate
 ```
 
-## Paketler
+## 📦 Paketler
 
-- `packages/api` - Express.js API
+- **`packages/api`** - Express.js API with TypeScript
+  - PostgreSQL (Prisma ORM)
+  - Redis (Caching)
+  - MinIO (Object Storage)
+  - JWT Authentication
+  - Express Rate Limiting
+  - Monitoring (Prometheus + Grafana)
+
+## 🌐 URLs (Local)
+
+- **API**: http://localhost:3000
+- **MinIO Console**: http://localhost:9001
+- **Grafana**: http://localhost:3001 
+- **Prometheus**: http://localhost:9090
 
 ## Özellikler
 
@@ -66,4 +91,27 @@ npm run db:migrate
 - 🔄 **Hot Reload** - Geliştirme sırasında otomatik yenileme
 - 🧪 **Testing** - Jest ile test desteği
 - 🔍 **Linting** - ESLint ve Prettier
-- 🗄️ **Database** - Prisma ORM 
+- 🗄️ **Database** - Prisma ORM
+- 🐳 **Docker** - Containerized services
+- 🔄 **Remote Access** - Multi-PC development support
+
+## 📚 Dokümantasyon
+
+- [Local Setup Guide](./LOCAL_SETUP.md) - Local PC kurulumu
+- [Remote Setup Guide](./REMOTE_DATABASE_SETUP.md) - Uzak sunucu bağlantısı
+
+## 🔧 Servis Yönetimi
+
+```bash
+# Local servisleri başlat/durdur
+npm run services:start
+npm run services:stop
+
+# Remote servisleri başlat/durdur  
+npm run services:start:remote
+npm run services:stop:remote
+
+# Environment değiştir
+npm run setup:local    # Local environment
+npm run setup:remote   # Remote environment
+``` 

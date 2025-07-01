@@ -27,6 +27,21 @@ if [ $? -eq 0 ]; then
     echo "✅ Database connection successful!"
     echo "🔧 Generating Prisma client..."
     npx prisma generate
+    
+    # Test MinIO connection
+    echo "🗄️ Testing MinIO connection..."
+    MINIO_ENDPOINT=$(grep MINIO_ENDPOINT .env | cut -d '=' -f2 | tr -d '"')
+    MINIO_PORT=$(grep MINIO_PORT .env | cut -d '=' -f2 | tr -d '"')
+    
+    if curl -f "http://${MINIO_ENDPOINT}:${MINIO_PORT}/minio/health/live" > /dev/null 2>&1; then
+        echo "✅ MinIO connection successful!"
+        echo "🌐 MinIO Console: http://${MINIO_ENDPOINT}:9001"
+        echo "📊 MinIO API: http://${MINIO_ENDPOINT}:9000"
+    else
+        echo "⚠️ MinIO connection failed (this might be normal if MinIO is not running)"
+        echo "To start MinIO with remote access, run: docker-compose -f docker-compose.remote.yml up -d minio"
+    fi
+    
     echo "✅ Setup completed successfully!"
 else
     echo "❌ Database connection failed!"

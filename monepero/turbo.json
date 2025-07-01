@@ -78,6 +78,18 @@
         },
         "db:seed": {
             "cache": false
+        },
+        "server:ip": {
+            "cache": false
+        },
+        "server:firewall": {
+            "cache": false
+        },
+        "server:check": {
+            "cache": false
+        },
+        "remote:start": {
+            "cache": false
         }
     }
 }

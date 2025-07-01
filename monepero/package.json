@@ -14,7 +14,15 @@
         "db:push": "turbo run db:push",
         "db:migrate": "turbo run db:migrate",
         "setup:remote": "turbo run setup:remote",
-        "setup:local": "turbo run setup:local"
+        "setup:local": "turbo run setup:local",
+        "services:start": "turbo run services:start",
+        "services:start:remote": "turbo run services:start:remote",
+        "services:stop": "turbo run services:stop",
+        "services:stop:remote": "turbo run services:stop:remote",
+        "server:ip": "turbo run server:ip",
+        "server:firewall": "turbo run server:firewall",
+        "server:check": "turbo run server:check",
+        "remote:start": "turbo run remote:start"
     },
     "devDependencies": {
         "turbo": "2.5.4"
