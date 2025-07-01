@@ -1,0 +1,261 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
+  username      String    @unique
+  email         String    @unique
+  password      String
+  phone         String
+  location      String?
+  bio           String?
+  profilePhoto  String?   @map("profile_photo")
+  lisans        Boolean   @default(false)
+  role          Role      @default(USER)
+  subscription  Boolean   @default(false) @map("subscription")
+  resetToken    String?   @map("reset_token")
+  resetTokenExpires DateTime? @map("reset_token_expires")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  documents          Document[]
+  fieldListings      FieldListing[]
+  goalkeeperListings GoalkeeperListing[]
+  refereeListings    RefereeListing[]
+  fcmTokens          FcmToken[]
+  userSessions       UserSession[]
+  status             Boolean            @default(true)
+
+  @@map("users")
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  fileName  String   @map("file_name")
+  fileType  String   @map("file_type")
+  filePath  String   @map("file_path")
+  fileSize  Int      @map("file_size")
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("documents")
+}
+
+model FieldListing {
+  id               String          @id @default(cuid())
+  userId           String          @map("user_id")
+  fieldName        String          @map("field_name")
+  fieldAddress     String          @map("field_address")
+  hourlyPrice      Decimal         @map("hourly_price") @db.Decimal(10, 2)
+  isIndoor         Boolean         @map("is_indoor")
+  surfaceType      SurfaceType     @map("surface_type")
+  phone            String
+  contactType      ContactType     @map("contact_type") @default(PHONE)
+  description      String?
+  isActive         Boolean         @default(true) @map("is_active")
+  featured         Boolean         @default(false) // Öne çıkan ilan
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedules        FieldSchedule[]
+  features         FieldFeature[]
+  photos           FieldPhoto[]
+  subFields        SubField[]
+
+  @@map("field_listings")
+}
+
+model SubField {
+  id            String       @id @default(cuid())
+  fieldListingId String      @map("field_listing_id")
+  name          String
+  surfaceType   SurfaceType  @map("surface_type")
+  hourlyPrice   Decimal      @map("hourly_price") @db.Decimal(10, 2)
+  isIndoor      Boolean      @map("is_indoor")
+  
+  fieldListing  FieldListing @relation(fields: [fieldListingId], references: [id], onDelete: Cascade)
+
+  @@map("sub_fields")
+}
+
+model FieldSchedule {
+  id             String       @id @default(cuid())
+  fieldListingId String       @map("field_listing_id")
+  dayOfWeek      DayOfWeek    @map("day_of_week")
+  startTime      String?      @map("start_time") // Format: "HH:MM" - nullable for closed days
+  endTime        String?      @map("end_time")   // Format: "HH:MM" - nullable for closed days
+  isOpen         Boolean      @default(true)     // false means closed/holiday
+  
+  fieldListing   FieldListing @relation(fields: [fieldListingId], references: [id], onDelete: Cascade)
+
+  @@map("field_schedules")
+}
+
+model FieldFeature {
+  id             String       @id @default(cuid())
+  fieldListingId String       @map("field_listing_id")
+  featureType    FeatureType  @map("feature_type")
+  
+  fieldListing   FieldListing @relation(fields: [fieldListingId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldListingId, featureType])
+  @@map("field_features")
+}
+
+model FieldPhoto {
+  id             String       @id @default(cuid())
+  fieldListingId String       @map("field_listing_id")
+  photoUrl       String       @map("photo_url")
+  photoOrder     Int          @map("photo_order")
+  
+  fieldListing   FieldListing @relation(fields: [fieldListingId], references: [id], onDelete: Cascade)
+
+  @@map("field_photos")
+}
+
+model GoalkeeperListing {
+  id          String      @id @default(cuid())
+  userId      String      @map("user_id")
+  title       String      // İlan Başlığı
+  location    String      // Konum
+  description String      // Açıklama
+  hasLicense  Boolean     @map("has_license") @default(false) // Lisans seçeneği
+  hourlyPrice Decimal     @map("hourly_price") @db.Decimal(10, 2) // Saatlik ücret
+  bio         String      // Kendini anlatan yazı
+  phone       String
+  contactType ContactType @map("contact_type") @default(PHONE)
+  isActive    Boolean     @default(true) @map("is_active")
+  featured    Boolean     @default(false) // Öne çıkan ilan
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("goalkeeper_listings")
+}
+
+model RefereeListing {
+  id          String      @id @default(cuid())
+  userId      String      @map("user_id")
+  title       String      // İlan Başlığı
+  location    String      // Konum
+  description String      // Açıklama
+  hasLicense  Boolean     @map("has_license") @default(false) // Lisans seçeneği
+  hourlyPrice Decimal     @map("hourly_price") @db.Decimal(10, 2) // Saatlik ücret
+  bio         String      // Kendini anlatan yazı
+  phone       String
+  contactType ContactType @map("contact_type") @default(PHONE)
+  isActive    Boolean     @default(true) @map("is_active")
+  featured    Boolean     @default(false) // Öne çıkan ilan
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("referee_listings")
+}
+
+model FcmToken {
+  id        String      @id @default(cuid())
+  userId    String      @map("user_id")
+  token     String      @unique // FCM token benzersiz olmalı
+  platform  Platform    // iOS, Android, Web
+  deviceId  String?     @map("device_id") // Cihaz ID (optional)
+  isActive  Boolean     @default(true) @map("is_active")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, deviceId]) // Aynı kullanıcıdan aynı cihaz sadece bir token
+  @@map("fcm_tokens")
+}
+
+model UserSession {
+  id             String    @id @default(cuid())
+  userId         String    @map("user_id")
+  sessionToken   String    @unique @map("session_token") // JWT jti claim'i
+  deviceInfo     String?   @map("device_info") // User-Agent ve cihaz bilgileri
+  ipAddress      String?   @map("ip_address") // IP adresi
+  location       String?   // Şehir/ülke bilgisi
+  platform       Platform? // iOS, Android, Web
+  isActive       Boolean   @default(true) @map("is_active")
+  lastAccessedAt DateTime  @default(now()) @map("last_accessed_at")
+  expiresAt      DateTime  @map("expires_at") // Token sona erme zamanı
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, isActive]) // Kullanıcının aktif session'larını hızlı getirmek için
+  @@index([sessionToken]) // Token ile arama için
+  @@index([expiresAt]) // Süresi dolmuş session'ları temizlemek için
+  @@map("user_sessions")
+}
+
+enum Role {
+  USER
+  GOALKEEPER
+  REFEREE
+  FOOTBALL_FIELD_OWNER
+  ADMIN
+}
+
+enum SurfaceType {
+  GRASS          // Çim
+  ARTIFICIAL     // Suni Çim
+  CONCRETE       // Beton
+  CARPET         // Halı
+}
+
+enum ContactType {
+  PHONE
+  WHATSAPP
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum Platform {
+  IOS
+  ANDROID
+  WEB
+}
+
+enum FeatureType {
+  // Teknik Özellikler
+  OPEN_24_7           // 7/24 Açık
+  ONLINE_RESERVATION  // Online Rezervasyon
+  FREE_WIFI           // Ücretsiz Wifi
+  SECURITY_CAMERA     // Güvenlik Kamerası
+  
+  // Olanaklar
+  CHANGING_ROOM       // Soyunma Odası
+  SHOWER              // Duş
+  TOILET              // Tuvalet
+  PARKING             // Otopark
+  CAFE                // Kafe
+  TRIBUNE             // Tribün
+  RENTAL_SHOES        // Kiralık Ayakkabı
+  RENTAL_GLOVES       // Kiralık Eldiven
+}
