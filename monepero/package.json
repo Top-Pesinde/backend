@@ -1,0 +1,26 @@
+{
+    "name": "monepero",
+    "private": true,
+    "version": "1.0.0",
+    "description": "Monorepo managed with Turborepo",
+    "scripts": {
+        "build": "turbo run build",
+        "dev": "turbo run dev",
+        "lint": "turbo run lint",
+        "format": "turbo run format",
+        "test": "turbo run test",
+        "clean": "turbo run clean",
+        "db:generate": "turbo run db:generate",
+        "db:push": "turbo run db:push",
+        "db:migrate": "turbo run db:migrate",
+        "setup:remote": "turbo run setup:remote",
+        "setup:local": "turbo run setup:local"
+    },
+    "devDependencies": {
+        "turbo": "2.5.4"
+    },
+    "workspaces": [
+        "packages/*"
+    ],
+    "packageManager": "npm@8.0.0"
+}
