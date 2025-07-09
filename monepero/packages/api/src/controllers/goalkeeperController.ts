@@ -23,13 +23,28 @@ export class GoalkeeperController {
                 });
             }
 
-            // Gerekli alanları kontrol et
-            const { title, location, description, hourlyPrice, bio, phone, contactType, hasLicense } = req.body;
+            // Kullanıcının aktif kaleci ilanı var mı kontrol et
+            const activeListingCheck = await goalkeeperService.getUserGoalkeeperListings(userId);
+            if (activeListingCheck.success && activeListingCheck.data) {
+                const hasActiveListing = activeListingCheck.data.some((listing: any) => listing.isActive === true);
+                if (hasActiveListing) {
+                    return res.status(409).json({
+                        success: false,
+                        message: 'Zaten aktif bir kaleci ilanınız bulunmaktadır. Yeni ilan oluşturmak için önce mevcut ilanınızı deaktif etmelisiniz.',
+                        error: 'Active listing already exists',
+                        timestamp: new Date().toISOString(),
+                        statusCode: 409
+                    });
+                }
+            }
 
-            if (!title || !location || !description || !hourlyPrice || !bio || !phone) {
+            // Gerekli alanları kontrol et
+            const { title, location, description, hourlyPrice, phone, contactType, hasLicense } = req.body;
+
+            if (!title || !location || !description || !hourlyPrice || !phone) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Eksik alanlar: title, location, description, hourlyPrice, bio, phone gereklidir',
+                    message: 'Eksik alanlar: title, location, description, hourlyPrice, phone gereklidir',
                     error: 'Validation failed',
                     timestamp: new Date().toISOString(),
                     statusCode: 400
@@ -52,7 +67,7 @@ export class GoalkeeperController {
                 location,
                 description,
                 hourlyPrice: parseFloat(hourlyPrice),
-                bio,
+                bio: '',
                 phone,
                 contactType: contactType || 'PHONE',
                 hasLicense: hasLicense === 'true' || hasLicense === true
@@ -275,7 +290,18 @@ export class GoalkeeperController {
                 });
             }
 
-            const { title, location, description, hourlyPrice, bio, phone, contactType, hasLicense, isActive } = req.body;
+            const { title, description, hourlyPrice } = req.body;
+
+            // En az bir alan gönderilmiş mi kontrol et
+            if (!title && !description && !hourlyPrice) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Başlık, açıklama veya saatlik ücret alanlarından en az biri gereklidir',
+                    error: 'At least title, description or hourlyPrice is required',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                });
+            }
 
             // Saatlik ücret validasyonu (eğer gönderilmişse)
             if (hourlyPrice && (isNaN(hourlyPrice) || hourlyPrice < 0 || hourlyPrice > 10000)) {
@@ -290,14 +316,8 @@ export class GoalkeeperController {
 
             const updateData: UpdateGoalkeeperListingDto = {};
             if (title) updateData.title = title;
-            if (location) updateData.location = location;
             if (description) updateData.description = description;
             if (hourlyPrice) updateData.hourlyPrice = parseFloat(hourlyPrice);
-            if (bio) updateData.bio = bio;
-            if (phone) updateData.phone = phone;
-            if (contactType) updateData.contactType = contactType;
-            if (hasLicense !== undefined) updateData.hasLicense = hasLicense === 'true' || hasLicense === true;
-            if (isActive !== undefined) updateData.isActive = isActive === 'true' || isActive === true;
 
             const result = await goalkeeperService.updateGoalkeeperListing(id, userId, updateData);
 
@@ -314,7 +334,10 @@ export class GoalkeeperController {
             return res.status(200).json({
                 success: true,
                 message: 'Kaleci ilanı başarıyla güncellendi',
-                data: result.data,
+                data: {
+                    ...result.data,
+                    lastUpdated: new Date().toISOString()
+                },
                 timestamp: new Date().toISOString(),
                 statusCode: 200
             });

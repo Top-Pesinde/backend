@@ -60,7 +60,7 @@ export class RefereeService {
             if (existingActiveListing) {
                 return {
                     success: false,
-                    error: 'Zaten aktif bir hakem ilanınız bulunmaktadır. Yeni ilan açmak için önce mevcut ilanınızı devre dışı bırakın.',
+                    error: 'Zaten aktif bir hakem ilanınız bulunmaktadır. Yeni ilan açmak için önce mevcut ilanınızı silin.',
                     statusCode: 400
                 };
             }
@@ -74,8 +74,8 @@ export class RefereeService {
                     description: data.description,
                     hasLicense: data.hasLicense || false,
                     hourlyPrice: data.hourlyPrice,
-                    bio: data.bio,
-                    phone: data.phone,
+                    bio: data.bio || '',
+                    phone: data.phone || '',
                     contactType: data.contactType || 'PHONE'
                 },
                 include: {
@@ -346,20 +346,38 @@ export class RefereeService {
                 };
             }
 
+            // Sadece title, description ve hourlyPrice güncellenebilir
+            const allowedFields = ['title', 'description', 'hourlyPrice'];
+            const updateData: any = {};
+            let hasValidField = false;
+
+            // Sadece izin verilen alanları kontrol et
+            if (data.title !== undefined) {
+                updateData.title = data.title;
+                hasValidField = true;
+            }
+            if (data.description !== undefined) {
+                updateData.description = data.description;
+                hasValidField = true;
+            }
+            if (data.hourlyPrice !== undefined) {
+                updateData.hourlyPrice = data.hourlyPrice;
+                hasValidField = true;
+            }
+
+            // En az bir alan güncellenmelidir
+            if (!hasValidField) {
+                return {
+                    success: false,
+                    error: 'Güncellemek için en az bir alan belirtmelisiniz (title, description, hourlyPrice)',
+                    statusCode: 400
+                };
+            }
+
             // İlanı güncelle
             const updatedListing = await prisma.refereeListing.update({
                 where: { id },
-                data: {
-                    ...(data.title && { title: data.title }),
-                    ...(data.location && { location: data.location }),
-                    ...(data.description && { description: data.description }),
-                    ...(data.hasLicense !== undefined && { hasLicense: data.hasLicense }),
-                    ...(data.hourlyPrice && { hourlyPrice: data.hourlyPrice }),
-                    ...(data.bio && { bio: data.bio }),
-                    ...(data.phone && { phone: data.phone }),
-                    ...(data.contactType && { contactType: data.contactType }),
-                    ...(data.isActive !== undefined && { isActive: data.isActive }),
-                },
+                data: updateData,
                 include: {
                     user: {
                         select: {
@@ -377,9 +395,15 @@ export class RefereeService {
                 }
             });
 
+            // Response'a lastUpdated ekle
+            const responseData = {
+                ...this.enhanceListingData(updatedListing),
+                lastUpdated: new Date().toISOString()
+            };
+
             return {
                 success: true,
-                data: this.enhanceListingData(updatedListing) as any,
+                data: responseData as any,
                 statusCode: 200
             };
         } catch (error) {

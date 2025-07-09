@@ -337,10 +337,10 @@ export interface RefereeListing {
     location: string;
     description: string;
     hasLicense: boolean;
-    hourlyPrice: number | string; // Can be Decimal from Prisma or number from input
-    bio: string;
-    phone: string;
-    contactType: ContactType;
+    hourlyPrice: number | string;
+    bio?: string | null;
+    phone?: string | null;
+    contactType?: ContactType | null;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -364,9 +364,9 @@ export interface CreateRefereeListingDto {
     description: string;
     hasLicense?: boolean;
     hourlyPrice: number;
-    bio: string;
-    phone: string;
-    contactType?: ContactType;
+    bio?: string | null;
+    phone?: string | null;
+    contactType?: ContactType | null;
 }
 
 export interface UpdateGoalkeeperListingDto {

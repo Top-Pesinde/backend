@@ -32,6 +32,30 @@ class FieldListingController {
                 return;
             }
 
+            // Kullanıcının aktif ilanı var mı kontrol et
+            const activeListingCheck = await fieldListingService.hasActiveListing(userId);
+            if (!activeListingCheck.success) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Aktif ilan kontrolü sırasında hata oluştu',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 500
+                };
+                res.status(500).json(response);
+                return;
+            }
+
+            if (activeListingCheck.data) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Zaten aktif bir halısaha ilanınız bulunmaktadır. Yeni ilan oluşturmak için önce mevcut ilanınızı deaktif etmelisiniz.',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 409
+                };
+                res.status(409).json(response);
+                return;
+            }
+
             const {
                 fieldName,
                 fieldAddress,
@@ -47,7 +71,7 @@ class FieldListingController {
             } = req.body;
 
             // Validation
-            if (!fieldName || !fieldAddress || !hourlyPrice || isIndoor === undefined || !surfaceType || !phone || !contactType) {
+            if (!fieldName || !fieldAddress || !hourlyPrice || isIndoor === undefined || !surfaceType) {
                 const response: ApiResponse = {
                     success: false,
                     message: 'Gerekli alanlar eksik',
@@ -58,7 +82,6 @@ class FieldListingController {
                 return;
             }
 
-            // schedules'ı parse et
             let parsedSchedules;
             try {
                 parsedSchedules = Array.isArray(schedules) ? schedules : JSON.parse(schedules);

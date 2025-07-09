@@ -6,7 +6,8 @@ import {
     ServiceResponse,
     FieldListing,
     PaginationParams,
-    PaginatedResponse
+    PaginatedResponse,
+    DayOfWeek
 } from '../types';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -73,22 +74,49 @@ export class FieldListingService {
                         hourlyPrice: new Decimal(data.hourlyPrice),
                         isIndoor: data.isIndoor,
                         surfaceType: data.surfaceType,
-                        phone: data.phone,
-                        contactType: data.contactType,
+                        phone: data.phone || null,
+                        contactType: data.contactType || null,
                         description: data.description
                     }
                 });
 
-                // Çalışma saatleri ekle
+
                 if (data.schedules && data.schedules.length > 0) {
+                    // Tüm günleri liste olarak tanımla
+                    const allDays: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+
+                    // Gönderilen günleri map'e çevir (hızlı arama için)
+                    const providedDaysMap = new Map();
+                    data.schedules.forEach(schedule => {
+                        providedDaysMap.set(schedule.dayOfWeek, schedule);
+                    });
+
+                    // Tüm günler için schedule oluştur
+                    const scheduleData = allDays.map(day => {
+                        const providedSchedule = providedDaysMap.get(day);
+                        if (providedSchedule) {
+                            // Kullanıcının gönderdiği gün - açık
+                            return {
+                                fieldListingId: fieldListing.id,
+                                dayOfWeek: day,
+                                startTime: providedSchedule.startTime || null,
+                                endTime: providedSchedule.endTime || null,
+                                isOpen: providedSchedule.isOpen !== false // default true
+                            };
+                        } else {
+                            // Kullanıcının göndermediği gün - otomatik kapalı
+                            return {
+                                fieldListingId: fieldListing.id,
+                                dayOfWeek: day,
+                                startTime: null,
+                                endTime: null,
+                                isOpen: false
+                            };
+                        }
+                    });
+
                     await tx.fieldSchedule.createMany({
-                        data: data.schedules.map(schedule => ({
-                            fieldListingId: fieldListing.id,
-                            dayOfWeek: schedule.dayOfWeek,
-                            startTime: schedule.startTime || null,
-                            endTime: schedule.endTime || null,
-                            isOpen: schedule.isOpen !== false // default true
-                        }))
+                        data: scheduleData
                     });
                 }
 
@@ -217,23 +245,50 @@ export class FieldListingService {
                     data: updateData
                 });
 
-                // Çalışma saatleri güncelle
+                // Çalışma saatleri güncelle - sadece gönderilen günler açık, diğerleri kapalı
                 if (data.schedules) {
                     await tx.fieldSchedule.deleteMany({
                         where: { fieldListingId: existingListing.id }
                     });
 
+                    // Tüm günleri liste olarak tanımla
+                    const allDays: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+
+                    // Gönderilen günleri map'e çevir (hızlı arama için)
+                    const providedDaysMap = new Map();
                     if (data.schedules.length > 0) {
-                        await tx.fieldSchedule.createMany({
-                            data: data.schedules.map(schedule => ({
-                                fieldListingId: existingListing.id,
-                                dayOfWeek: schedule.dayOfWeek,
-                                startTime: schedule.startTime || null,
-                                endTime: schedule.endTime || null,
-                                isOpen: schedule.isOpen !== false // default true
-                            }))
+                        data.schedules.forEach(schedule => {
+                            providedDaysMap.set(schedule.dayOfWeek, schedule);
                         });
                     }
+
+                    // Tüm günler için schedule oluştur
+                    const scheduleData = allDays.map(day => {
+                        const providedSchedule = providedDaysMap.get(day);
+                        if (providedSchedule) {
+                            // Kullanıcının gönderdiği gün - açık
+                            return {
+                                fieldListingId: existingListing.id,
+                                dayOfWeek: day,
+                                startTime: providedSchedule.startTime || null,
+                                endTime: providedSchedule.endTime || null,
+                                isOpen: providedSchedule.isOpen !== false // default true
+                            };
+                        } else {
+                            // Kullanıcının göndermediği gün - otomatik kapalı
+                            return {
+                                fieldListingId: existingListing.id,
+                                dayOfWeek: day,
+                                startTime: null,
+                                endTime: null,
+                                isOpen: false
+                            };
+                        }
+                    });
+
+                    await tx.fieldSchedule.createMany({
+                        data: scheduleData
+                    });
                 }
 
                 // Özellikler güncelle

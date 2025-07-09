@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto, Platform } from '../types';
+import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto, Platform, User } from '../types';
 import { prisma } from '../lib/prisma';
 import { sendEmail } from '../mail';
 import { UserSessionService } from './userSessionService';
@@ -1311,6 +1311,19 @@ export class AuthService {
                 statusCode: 500,
             };
         }
+    }
+
+    async findUserByEmail(email: string): Promise<User | null> {
+        return await prisma.user.findUnique({
+            where: { email }
+        });
+    }
+
+
+    async findUserByPhone(phone: string, userId: string): Promise<User | null> {
+        return await prisma.user.findFirst({
+            where: { phone, id: { not: userId } }
+        });
     }
 
 }

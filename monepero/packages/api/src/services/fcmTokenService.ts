@@ -7,7 +7,7 @@ import {
 } from '../types';
 
 export class FcmTokenService {
-    // FCM token oluşturma veya güncelleme
+    // FCM token oluşturma veya güncelleme - Her kullanıcının sadece 1 aktif token'ı olur
     async upsertFcmToken(userId: string, data: CreateFcmTokenDto): Promise<ServiceResponse<FcmToken>> {
         try {
             // Kullanıcının varlığını kontrol et
@@ -23,45 +23,51 @@ export class FcmTokenService {
                 };
             }
 
-            // Aynı kullanıcı ve device için mevcut token'ı kontrol et
-            let existingToken = null;
-            if (data.deviceId) {
-                existingToken = await prisma.fcmToken.findFirst({
-                    where: {
-                        userId,
-                        deviceId: data.deviceId
-                    }
-                });
-            }
+            // Aynı token zaten var mı kontrol et
+            const sameToken = await prisma.fcmToken.findFirst({
+                where: {
+                    userId,
+                    token: data.token
+                }
+            });
 
-            let fcmToken;
-
-            if (existingToken) {
-                // Mevcut token'ı güncelle
-                fcmToken = await prisma.fcmToken.update({
-                    where: { id: existingToken.id },
+            if (sameToken) {
+                // Aynı token zaten var, sadece platformu güncelle ve return et
+                const fcmToken = await prisma.fcmToken.update({
+                    where: { id: sameToken.id },
                     data: {
-                        token: data.token,
                         platform: data.platform,
+                        deviceId: data.deviceId,
                         isActive: true
                     }
                 });
-            } else {
-                // Yeni token oluştur
-                fcmToken = await prisma.fcmToken.create({
-                    data: {
-                        userId,
-                        token: data.token,
-                        platform: data.platform,
-                        deviceId: data.deviceId
-                    }
-                });
+
+                return {
+                    success: true,
+                    data: fcmToken as FcmToken,
+                    statusCode: 200
+                };
             }
+
+            // Kullanıcının tüm eski FCM token'larını sil
+            await prisma.fcmToken.deleteMany({
+                where: { userId }
+            });
+
+            // Yeni token oluştur
+            const fcmToken = await prisma.fcmToken.create({
+                data: {
+                    userId,
+                    token: data.token,
+                    platform: data.platform,
+                    deviceId: data.deviceId
+                }
+            });
 
             return {
                 success: true,
                 data: fcmToken as FcmToken,
-                statusCode: existingToken ? 200 : 201
+                statusCode: 201
             };
         } catch (error: any) {
             console.error('FcmTokenService.upsertFcmToken error:', error);

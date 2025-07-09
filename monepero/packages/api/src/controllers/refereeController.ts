@@ -23,12 +23,27 @@ export class RefereeController {
                 });
             }
 
+            // Kullanıcının aktif hakem ilanı var mı kontrol et
+            const activeListingCheck = await refereeService.getUserRefereeListings(userId);
+            if (activeListingCheck.success && activeListingCheck.data) {
+                const hasActiveListing = activeListingCheck.data.some((listing: any) => listing.isActive === true);
+                if (hasActiveListing) {
+                    return res.status(409).json({
+                        success: false,
+                        message: 'Zaten aktif bir hakem ilanınız bulunmaktadır. Yeni ilan oluşturmak için önce mevcut ilanınızı deaktif etmelisiniz.',
+                        error: 'Active listing already exists',
+                        timestamp: new Date().toISOString(),
+                        statusCode: 409
+                    });
+                }
+            }
+
             const { title, location, description, hourlyPrice, bio, phone, contactType, hasLicense } = req.body;
 
-            if (!title || !location || !description || !hourlyPrice || !bio || !phone) {
+            if (!title || !location || !description || hourlyPrice === undefined) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Eksik alanlar: title, location, description, hourlyPrice, bio, phone gereklidir',
+                    message: 'Eksik alanlar: title, location, description, hourlyPrice gereklidir',
                     error: 'Validation failed',
                     timestamp: new Date().toISOString(),
                     statusCode: 400
@@ -51,9 +66,9 @@ export class RefereeController {
                 location,
                 description,
                 hourlyPrice: parseFloat(hourlyPrice),
-                bio,
-                phone,
-                contactType: contactType || 'PHONE',
+                bio: bio || null,
+                phone: phone || null,
+                contactType: contactType || null,
                 hasLicense: hasLicense === 'true' || hasLicense === true
             };
 
@@ -274,10 +289,21 @@ export class RefereeController {
                 });
             }
 
-            const { title, location, description, hourlyPrice, bio, phone, contactType, hasLicense, isActive } = req.body;
+            const { title, description, hourlyPrice } = req.body;
+
+            // En az bir alan belirtilmelidir
+            if (title === undefined && description === undefined && hourlyPrice === undefined) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Güncellemek için en az bir alan belirtmelisiniz (title, description, hourlyPrice)',
+                    error: 'No fields to update',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                });
+            }
 
             // Saatlik ücret validasyonu (eğer gönderilmişse)
-            if (hourlyPrice && (isNaN(hourlyPrice) || hourlyPrice < 0 || hourlyPrice > 10000)) {
+            if (hourlyPrice !== undefined && (isNaN(hourlyPrice) || hourlyPrice < 0 || hourlyPrice > 10000)) {
                 return res.status(400).json({
                     success: false,
                     message: 'Saatlik ücret 0-10000 TL arasında olmalıdır',
@@ -288,15 +314,9 @@ export class RefereeController {
             }
 
             const updateData: UpdateRefereeListingDto = {};
-            if (title) updateData.title = title;
-            if (location) updateData.location = location;
-            if (description) updateData.description = description;
-            if (hourlyPrice) updateData.hourlyPrice = parseFloat(hourlyPrice);
-            if (bio) updateData.bio = bio;
-            if (phone) updateData.phone = phone;
-            if (contactType) updateData.contactType = contactType;
-            if (hasLicense !== undefined) updateData.hasLicense = hasLicense === 'true' || hasLicense === true;
-            if (isActive !== undefined) updateData.isActive = isActive === 'true' || isActive === true;
+            if (title !== undefined) updateData.title = title;
+            if (description !== undefined) updateData.description = description;
+            if (hourlyPrice !== undefined) updateData.hourlyPrice = parseFloat(hourlyPrice);
 
             const result = await refereeService.updateRefereeListing(id, userId, updateData);
 
@@ -386,121 +406,7 @@ export class RefereeController {
         }
     }
 
-    // Hakem ilanını aktifleştirme
-    async activateRefereeListing(req: CustomRequest, res: Response) {
-        try {
-            const userId = req.user?.id;
-            const { id } = req.params;
 
-            if (!userId) {
-                return res.status(401).json({
-                    success: false,
-                    message: 'Unauthorized - Token gerekli',
-                    error: 'User not authenticated',
-                    timestamp: new Date().toISOString(),
-                    statusCode: 401
-                });
-            }
-
-            if (!id) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'İlan ID gereklidir',
-                    error: 'Missing listing ID',
-                    timestamp: new Date().toISOString(),
-                    statusCode: 400
-                });
-            }
-
-            const result = await refereeService.activateRefereeListing(id, userId);
-
-            if (!result.success) {
-                return res.status(result.statusCode || 500).json({
-                    success: false,
-                    message: result.error || 'Hakem ilanı aktifleştirilemedi',
-                    error: result.error,
-                    timestamp: new Date().toISOString(),
-                    statusCode: result.statusCode || 500
-                });
-            }
-
-            return res.status(200).json({
-                success: true,
-                message: 'Hakem ilanı başarıyla aktifleştirildi',
-                data: result.data,
-                timestamp: new Date().toISOString(),
-                statusCode: 200
-            });
-
-        } catch (error) {
-            console.error('RefereeController.activateRefereeListing error:', error);
-            return res.status(500).json({
-                success: false,
-                message: 'Sunucu hatası',
-                error: 'Internal server error',
-                timestamp: new Date().toISOString(),
-                statusCode: 500
-            });
-        }
-    }
-
-    // Hakem ilanını deaktifleştirme
-    async deactivateRefereeListing(req: CustomRequest, res: Response) {
-        try {
-            const userId = req.user?.id;
-            const { id } = req.params;
-
-            if (!userId) {
-                return res.status(401).json({
-                    success: false,
-                    message: 'Unauthorized - Token gerekli',
-                    error: 'User not authenticated',
-                    timestamp: new Date().toISOString(),
-                    statusCode: 401
-                });
-            }
-
-            if (!id) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'İlan ID gereklidir',
-                    error: 'Missing listing ID',
-                    timestamp: new Date().toISOString(),
-                    statusCode: 400
-                });
-            }
-
-            const result = await refereeService.deactivateRefereeListing(id, userId);
-
-            if (!result.success) {
-                return res.status(result.statusCode || 500).json({
-                    success: false,
-                    message: result.error || 'Hakem ilanı deaktifleştirilemedi',
-                    error: result.error,
-                    timestamp: new Date().toISOString(),
-                    statusCode: result.statusCode || 500
-                });
-            }
-
-            return res.status(200).json({
-                success: true,
-                message: 'Hakem ilanı başarıyla deaktifleştirildi',
-                data: result.data,
-                timestamp: new Date().toISOString(),
-                statusCode: 200
-            });
-
-        } catch (error) {
-            console.error('RefereeController.deactivateRefereeListing error:', error);
-            return res.status(500).json({
-                success: false,
-                message: 'Sunucu hatası',
-                error: 'Internal server error',
-                timestamp: new Date().toISOString(),
-                statusCode: 500
-            });
-        }
-    }
 }
 
 export const refereeController = new RefereeController(); 

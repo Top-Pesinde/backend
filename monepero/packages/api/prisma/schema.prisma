@@ -61,8 +61,8 @@ model FieldListing {
   hourlyPrice      Decimal         @map("hourly_price") @db.Decimal(10, 2)
   isIndoor         Boolean         @map("is_indoor")
   surfaceType      SurfaceType     @map("surface_type")
-  phone            String
-  contactType      ContactType     @map("contact_type") @default(PHONE)
+  phone            String?
+  contactType      ContactType?    @map("contact_type")
   description      String?
   isActive         Boolean         @default(true) @map("is_active")
   featured         Boolean         @default(false) // Öne çıkan ilan
@@ -148,22 +148,22 @@ model GoalkeeperListing {
 }
 
 model RefereeListing {
-  id          String      @id @default(cuid())
-  userId      String      @map("user_id")
-  title       String      // İlan Başlığı
-  location    String      // Konum
-  description String      // Açıklama
-  hasLicense  Boolean     @map("has_license") @default(false) // Lisans seçeneği
-  hourlyPrice Decimal     @map("hourly_price") @db.Decimal(10, 2) // Saatlik ücret
-  bio         String      // Kendini anlatan yazı
-  phone       String
-  contactType ContactType @map("contact_type") @default(PHONE)
-  isActive    Boolean     @default(true) @map("is_active")
-  featured    Boolean     @default(false) // Öne çıkan ilan
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  id          String       @id @default(cuid())
+  userId      String       @map("user_id")
+  title       String       // İlan Başlığı
+  location    String       // Konum
+  description String       // Açıklama
+  hasLicense  Boolean      @map("has_license") @default(false) // Lisans seçeneği
+  hourlyPrice Decimal      @map("hourly_price") @db.Decimal(10, 2) // Saatlik ücret
+  bio         String?      // Kendini anlatan yazı (artık opsiyonel)
+  phone       String?      // Artık opsiyonel
+  contactType ContactType? @map("contact_type") // Artık opsiyonel
+  isActive    Boolean      @default(true) @map("is_active")
+  featured    Boolean      @default(false) // Öne çıkan ilan
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
   
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("referee_listings")
 }

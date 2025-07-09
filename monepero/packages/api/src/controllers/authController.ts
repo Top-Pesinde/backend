@@ -492,7 +492,7 @@ export class AuthController {
             if (!user) {
                 const response: ApiResponse = {
                     success: false,
-                    message: 'User not authenticated',
+                    message: 'Kullanıcı kimliği doğrulanamadı',
                     timestamp: new Date().toISOString(),
                     statusCode: 401
                 };
@@ -506,7 +506,7 @@ export class AuthController {
             if (!contactData.email && !contactData.phone && contactData.location === undefined) {
                 const response: ApiResponse = {
                     success: false,
-                    message: 'At least one field (email, phone, location) must be provided',
+                    message: 'En az bir alan (email, telefon, konum) sağlanmalıdır',
                     timestamp: new Date().toISOString(),
                     statusCode: 400
                 };
@@ -514,13 +514,45 @@ export class AuthController {
                 return;
             }
 
+            // E-posta adresi kontrolü
+            if (contactData.email) {
+                const existingUserWithEmail = await authService.findUserByEmail(contactData.email);
+
+                if (existingUserWithEmail) {
+                    const response: ApiResponse = {
+                        success: false,
+                        message: 'Bu e-posta adresi başka bir kullanıcı tarafından kullanılmaktadır',
+                        timestamp: new Date().toISOString(),
+                        statusCode: 400
+                    };
+                    res.status(400).json(response);
+                    return;
+                }
+            }
+
+            // Telefon numarası kontrolü
+            if (contactData.phone) {
+                const existingUserWithPhone = await authService.findUserByPhone(contactData.phone, user.id);
+
+                if (existingUserWithPhone) {
+                    const response: ApiResponse = {
+                        success: false,
+                        message: 'Bu telefon numarası başka bir kullanıcı tarafından kullanılmaktadır',
+                        timestamp: new Date().toISOString(),
+                        statusCode: 400
+                    };
+                    res.status(400).json(response);
+                    return;
+                }
+            }
+
             const result = await authService.updateContactInfo(user.id, contactData);
 
             const response: ApiResponse = {
                 success: result.success,
                 message: result.success
-                    ? 'Contact information updated successfully'
-                    : result.error || 'Failed to update contact information',
+                    ? 'İletişim bilgileri başarıyla güncellendi'
+                    : result.error || 'İletişim bilgileri güncellenirken hata oluştu',
                 data: result.data,
                 timestamp: new Date().toISOString(),
                 statusCode: result.statusCode
@@ -530,8 +562,8 @@ export class AuthController {
         } catch (error) {
             const response: ApiResponse = {
                 success: false,
-                message: 'Internal server error',
-                error: error instanceof Error ? error.message : 'Unknown error',
+                message: 'Sunucu hatası',
+                error: error instanceof Error ? error.message : 'Bilinmeyen hata',
                 timestamp: new Date().toISOString(),
                 statusCode: 500
             };
