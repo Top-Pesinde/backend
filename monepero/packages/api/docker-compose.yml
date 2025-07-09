@@ -1,28 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: express-api-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-      POSTGRES_DB: express_api_db
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - app-network
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d express_api_db" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # MinIO Object Storage
   minio:
     image: minio/minio:latest
@@ -59,8 +37,6 @@ services:
       /bin/sh -c " /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin123; /usr/bin/mc mb myminio/profile-photos --ignore-existing; /usr/bin/mc mb myminio/documents --ignore-existing; /usr/bin/mc mb myminio/general-uploads --ignore-existing; /usr/bin/mc mb myminio/fields --ignore-existing; /usr/bin/mc policy set public myminio/profile-photos; /usr/bin/mc policy set public myminio/fields; exit 0; "
 
 volumes:
-  postgres_data:
-    driver: local
   minio_data:
     driver: local
 

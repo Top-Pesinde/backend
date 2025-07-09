@@ -9,8 +9,8 @@ import { UserSessionService } from './userSessionService';
 export class AuthService {
     private readonly JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
     private readonly JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-super-secret-refresh-key';
-    private readonly ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || '15m';
-    private readonly REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
+    private readonly ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || '60d';
+    private readonly REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '60d';
     private readonly SALT_ROUNDS = 12;
     private sessionService = new UserSessionService();
 

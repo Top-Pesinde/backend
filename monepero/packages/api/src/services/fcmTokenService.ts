@@ -109,7 +109,7 @@ export class FcmTokenService {
         }
     }
 
-    // FCM token silme (deaktif etme)
+    // FCM token silme (tamamen sil)
     async deleteFcmToken(userId: string, tokenId: string): Promise<ServiceResponse<void>> {
         try {
             // Token'ın kullanıcıya ait olduğunu kontrol et
@@ -128,10 +128,9 @@ export class FcmTokenService {
                 };
             }
 
-            // Token'ı deaktif et (silmek yerine)
-            await prisma.fcmToken.update({
-                where: { id: tokenId },
-                data: { isActive: false }
+            // Token'ı tamamen sil
+            await prisma.fcmToken.delete({
+                where: { id: tokenId }
             });
 
             return {
@@ -151,4 +150,3 @@ export class FcmTokenService {
 
 export const fcmTokenService = new FcmTokenService();
 import { prisma } from '../lib/prisma';
- 

@@ -9,12 +9,10 @@ import {
 } from '../types';
 
 export class GoalkeeperService {
-    // Helper method to format contact type for display
     private formatContactType(contactType: string) {
         return contactType === 'WHATSAPP' ? 'WhatsApp' : 'Telefon';
     }
 
-    // Helper method to enhance listing data with display fields
     private enhanceListingData(listing: any) {
         return {
             ...listing,
@@ -25,10 +23,8 @@ export class GoalkeeperService {
         };
     }
 
-    // Kaleci ilanı oluşturma
     async createGoalkeeperListing(userId: string, data: CreateGoalkeeperListingDto): Promise<ServiceResponse<GoalkeeperListing>> {
         try {
-            // Kullanıcının GOALKEEPER rolüne sahip olduğunu kontrol et
             const user = await prisma.user.findUnique({
                 where: { id: userId }
             });
@@ -49,10 +45,10 @@ export class GoalkeeperService {
                 };
             }
 
-            // Kullanıcının aktif kaleci ilanı olup olmadığını kontrol et
+            // Kullanıcının zaten aktif bir ilanı olup olmadığını kontrol et
             const existingActiveListing = await prisma.goalkeeperListing.findFirst({
                 where: {
-                    userId,
+                    userId: userId,
                     isActive: true
                 }
             });
@@ -60,12 +56,11 @@ export class GoalkeeperService {
             if (existingActiveListing) {
                 return {
                     success: false,
-                    error: 'Zaten aktif bir kaleci ilanınız bulunmaktadır. Yeni ilan açmak için önce mevcut ilanınızı devre dışı bırakın.',
+                    error: 'Zaten aktif bir kaleci ilanınız bulunmaktadır. Yeni ilan açmak için önce mevcut ilanınızı siliniz.',
                     statusCode: 400
                 };
             }
 
-            // Kaleci ilanı oluştur
             const goalkeeperListing = await prisma.goalkeeperListing.create({
                 data: {
                     userId,
@@ -110,7 +105,6 @@ export class GoalkeeperService {
         }
     }
 
-    // Tüm kaleci ilanlarını listeleme (pagination + filtering)
     async getGoalkeeperListings(
         params: PaginationParams,
         filters: ServiceListingFilterDto = {}
@@ -119,7 +113,6 @@ export class GoalkeeperService {
             const { page = 1, limit = 10, sortBy = 'title', sortOrder = 'asc' } = params;
             const skip = (page - 1) * limit;
 
-            // Filter koşulları oluştur
             const where: any = {
                 isActive: true
             };
