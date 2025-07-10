@@ -34,6 +34,8 @@ model User {
   refereeListings    RefereeListing[]
   fcmTokens          FcmToken[]
   userSessions       UserSession[]
+  sentOffers         GoalkeeperOffer[]  @relation("OfferFromUser") // Gönderdiği teklifler
+  receivedOffers     GoalkeeperOffer[]  @relation("OfferToUser")   // Aldığı teklifler
   status             Boolean            @default(true)
 
   @@map("users")
@@ -134,15 +136,16 @@ model GoalkeeperListing {
   description String      // Açıklama
   hasLicense  Boolean     @map("has_license") @default(false) // Lisans seçeneği
   hourlyPrice Decimal     @map("hourly_price") @db.Decimal(10, 2) // Saatlik ücret
-  bio         String      // Kendini anlatan yazı
-  phone       String
-  contactType ContactType @map("contact_type") @default(PHONE)
+  bio         String?     // Kendini anlatan yazı
+  phone       String?
+  contactType ContactType? @map("contact_type") @default(PHONE)
   isActive    Boolean     @default(true) @map("is_active")
   featured    Boolean     @default(false) // Öne çıkan ilan
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
   
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offers      GoalkeeperOffer[] // Bu ilana gelen teklifler
 
   @@map("goalkeeper_listings")
 }
@@ -166,6 +169,28 @@ model RefereeListing {
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("referee_listings")
+}
+
+model GoalkeeperOffer {
+  id               String           @id @default(cuid())
+  listingId        String           @map("listing_id")
+  offerFromUserId  String           @map("offer_from_user_id") // Teklifi gönderen kullanıcı
+  offerToUserId    String           @map("offer_to_user_id")   // İlan sahibi (kaleci)
+  matchDate        DateTime         @map("match_date")         // Maç tarihi
+  startTime        String           @map("start_time")         // Başlangıç saati (HH:MM)
+  endTime          String           @map("end_time")           // Bitiş saati (HH:MM)
+  location         String           // Maç konumu
+  description      String?          // Ek açıklama
+  offeredPrice     Decimal          @map("offered_price") @db.Decimal(10, 2) // Teklif edilen ücret
+  status           OfferStatus      @default(PENDING)
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  
+  listing          GoalkeeperListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  offerFromUser    User             @relation("OfferFromUser", fields: [offerFromUserId], references: [id], onDelete: Cascade)
+  offerToUser      User             @relation("OfferToUser", fields: [offerToUserId], references: [id], onDelete: Cascade)
+
+  @@map("goalkeeper_offers")
 }
 
 model FcmToken {
@@ -258,4 +283,11 @@ enum FeatureType {
   TRIBUNE             // Tribün
   RENTAL_SHOES        // Kiralık Ayakkabı
   RENTAL_GLOVES       // Kiralık Eldiven
+}
+
+enum OfferStatus {
+  PENDING    // Beklemede
+  ACCEPTED   // Kabul edildi
+  REJECTED   // Reddedildi
+  CANCELLED  // İptal edildi
 }

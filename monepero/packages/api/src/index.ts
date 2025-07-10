@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -8,22 +9,27 @@ import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { metricsMiddleware } from './middleware/metricsMiddleware';
 import { UserSessionService } from './services/userSessionService';
+import { initializeSocket } from './services/socketService';
 
 const app = express();
+const httpServer = http.createServer(app);
 const PORT = Number(process.env.PORT) || 3000;
 
-// Rate limiting
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
-    message: 'Too many requests from this IP, please try again later.',
-});
+// Socket.IO'yu başlat
+const socketService = initializeSocket(httpServer);
+
+// Rate limiting (geçici olarak kapatıldı - test için)
+// const limiter = rateLimit({
+//     windowMs: 15 * 60 * 1000, // 15 minutes
+//     max: 100, // limit each IP to 100 requests per windowMs
+//     message: 'Too many requests from this IP, please try again later.',
+// });
 
 // Middleware
 app.use(helmet());
 app.use(cors());
 app.use(metricsMiddleware); // Add metrics collection before rate limiting
-app.use(limiter);
+// app.use(limiter); // Rate limit geçici olarak kapatıldı
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -36,6 +42,7 @@ app.get('/health', (req, res) => {
         status: 'OK',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
+        socketConnections: socketService.getConnectedUsersCount()
     });
 });
 
@@ -43,17 +50,15 @@ app.get('/health', (req, res) => {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-app.listen(PORT, '0.0.0.0', async () => {
+httpServer.listen(PORT, '0.0.0.0', async () => {
     console.log(`🚀 Server is running on http://0.0.0.0:${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`📈 Metrics: http://localhost:${PORT}/api/metrics`);
     console.log(`🔗 API base URL: http://localhost:${PORT}/api`);
     console.log(`🌐 External access: http://176.96.131.222:${PORT}/api`);
+    console.log(`📡 Socket.IO endpoint: ws://176.96.131.222:${PORT}`);
 
-    // Initialize session cleanup
     const sessionService = new UserSessionService();
-
-    // Run initial comprehensive cleanup
     console.log('🧹 Running initial comprehensive session cleanup...');
     const initialCleanup = await sessionService.comprehensiveSessionCleanup();
     if (initialCleanup.success) {

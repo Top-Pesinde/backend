@@ -321,9 +321,9 @@ export interface GoalkeeperListing {
     description: string;
     hasLicense: boolean;
     hourlyPrice: number | string; // Can be Decimal from Prisma or number from input
-    bio: string;
-    phone: string;
-    contactType: ContactType;
+    bio?: string | null;
+    phone?: string | null;
+    contactType?: ContactType | null;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -353,9 +353,9 @@ export interface CreateGoalkeeperListingDto {
     description: string;
     hasLicense?: boolean;
     hourlyPrice: number;
-    bio: string;
-    phone: string;
-    contactType?: ContactType;
+    bio?: string | null;
+    phone?: string | null;
+    contactType?: ContactType | null;
 }
 
 export interface CreateRefereeListingDto {
@@ -375,9 +375,9 @@ export interface UpdateGoalkeeperListingDto {
     description?: string;
     hasLicense?: boolean;
     hourlyPrice?: number;
-    bio?: string;
-    phone?: string;
-    contactType?: ContactType;
+    bio?: string | null;
+    phone?: string | null;
+    contactType?: ContactType | null;
     isActive?: boolean;
 }
 

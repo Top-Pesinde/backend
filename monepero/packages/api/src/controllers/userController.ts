@@ -174,6 +174,45 @@ export class UserController {
         }
     }
 
+    async getUserByUsername(req: Request, res: Response): Promise<void> {
+        try {
+            const { username } = req.params;
+
+            if (!username) {
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Username is required',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            const result = await userService.getUserByUsername(username);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success ? 'User fetched successfully' : result.error || 'Failed to fetch user',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+
+            res.status(500).json(response);
+        }
+    }
+
     async getUserStats(req: Request, res: Response): Promise<void> {
         try {
             // Check if user is authenticated and is ADMIN

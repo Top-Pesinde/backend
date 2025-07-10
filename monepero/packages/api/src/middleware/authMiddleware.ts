@@ -7,7 +7,7 @@ import { prisma } from '../lib/prisma';
 const authService = new AuthService();
 const sessionService = new UserSessionService();
 
-interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends Request {
     user?: any;
 }
 

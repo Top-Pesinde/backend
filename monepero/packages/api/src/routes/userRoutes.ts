@@ -8,6 +8,9 @@ const userController = new UserController();
 // GET /api/users/me - Get current user's complete information
 router.get('/me', authenticateToken, userController.getCurrentUser.bind(userController));
 
+// GET /api/users/username/:username - Get user by username (PUBLIC ENDPOINT)
+router.get('/username/:username', userController.getUserByUsername.bind(userController));
+
 // All user routes require authentication
 // Additional ADMIN role check is done in controller
 

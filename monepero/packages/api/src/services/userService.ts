@@ -177,6 +177,61 @@ export class UserService {
         }
     }
 
+    async getUserByUsername(username: string): Promise<ServiceResponse<Omit<User, 'password'>>> {
+        try {
+            const user = await prisma.user.findUnique({
+                where: { username: username },
+                select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    username: true,
+                    location: true,
+                    bio: true,
+                    profilePhoto: true,
+                    role: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            });
+
+            if (!user) {
+                return {
+                    success: false,
+                    error: 'User not found with this username',
+                    statusCode: 404,
+                };
+            }
+
+            // Güvenlik için aktif olmayan kullanıcıları göstermiyoruz
+            const userWithStatus = await prisma.user.findUnique({
+                where: { username: username },
+                select: { status: true }
+            });
+
+            if (!userWithStatus?.status) {
+                return {
+                    success: false,
+                    error: 'User account is not active',
+                    statusCode: 403,
+                };
+            }
+
+            return {
+                success: true,
+                data: user as Omit<User, 'password'>,
+                statusCode: 200,
+            };
+        } catch (error) {
+            console.error('Error fetching user by username:', error);
+            return {
+                success: false,
+                error: 'Failed to fetch user by username',
+                statusCode: 500,
+            };
+        }
+    }
+
     async getUserStats(): Promise<ServiceResponse<UserStats>> {
         try {
             // Get total users

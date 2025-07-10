@@ -30,7 +30,7 @@ export class GoalkeeperController {
                 if (hasActiveListing) {
                     return res.status(409).json({
                         success: false,
-                        message: 'Zaten aktif bir kaleci ilanınız bulunmaktadır. Yeni ilan oluşturmak için önce mevcut ilanınızı deaktif etmelisiniz.',
+                        message: 'Zaten aktif bir kaleci ilanınız bulunmaktadır. Yeni  il oluşturmak için önce mevcut ilanınızı deaktif etmelisiniz.',
                         error: 'Active listing already exists',
                         timestamp: new Date().toISOString(),
                         statusCode: 409
@@ -39,12 +39,12 @@ export class GoalkeeperController {
             }
 
             // Gerekli alanları kontrol et
-            const { title, location, description, hourlyPrice, phone, contactType, hasLicense } = req.body;
+            const { title, location, description, hourlyPrice, phone, contactType, hasLicense, bio } = req.body;
 
-            if (!title || !location || !description || !hourlyPrice || !phone) {
+            if (!title || !location || !description || !hourlyPrice) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Eksik alanlar: title, location, description, hourlyPrice, phone gereklidir',
+                    message: 'Eksik alanlar: title, location, description, hourlyPrice gereklidir',
                     error: 'Validation failed',
                     timestamp: new Date().toISOString(),
                     statusCode: 400
@@ -67,9 +67,9 @@ export class GoalkeeperController {
                 location,
                 description,
                 hourlyPrice: parseFloat(hourlyPrice),
-                bio: '',
-                phone,
-                contactType: contactType || 'PHONE',
+                bio: bio || null,
+                phone: phone || null,
+                contactType: contactType || null,
                 hasLicense: hasLicense === 'true' || hasLicense === true
             };
 
