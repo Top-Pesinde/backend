@@ -31,6 +31,7 @@ src/
 ## 🚀 Kurulum
 
 ### Hızlı Kurulum (Önerilen)
+
 ```bash
 # Setup script'ini çalıştır (PostgreSQL + Redis + Prisma)
 chmod +x scripts/setup.sh
@@ -40,47 +41,56 @@ chmod +x scripts/setup.sh
 ### Manuel Kurulum
 
 1. Environment dosyasını oluşturun:
+
 ```bash
 cp env.local.example .env
 ```
 
 2. PostgreSQL ve Redis'i başlatın:
+
 ```bash
 docker-compose up -d postgres redis
 ```
 
 3. Bağımlılıkları yükleyin:
+
 ```bash
 npm install
 ```
 
 4. Prisma client'ını generate edin:
+
 ```bash
 npx prisma generate
 ```
 
 5. Veritabanını oluşturun:
+
 ```bash
 npx prisma db push
 ```
 
 6. Veritabanını seed edin:
+
 ```bash
 npm run db:seed
 ```
 
 7. Development modunda çalıştırın:
+
 ```bash
 npm run dev
 ```
 
 ### Docker ile Tam Kurulum
+
 ```bash
 # Tüm servisleri Docker ile çalıştır
 docker-compose -f docker-compose.dev.yml up
 ```
 
 ### Production Build
+
 ```bash
 npm run build
 npm start
@@ -90,32 +100,33 @@ npm start
 
 ### Authentication
 
-| Method | Endpoint | Açıklama |
-|--------|----------|----------|
-| POST | `/api/v1/auth/register` | Kullanıcı kaydı (role-based) |
-| POST | `/api/v1/auth/login` | Kullanıcı girişi |
-| POST | `/api/v1/auth/refresh` | Token yenileme |
-| GET | `/api/v1/auth/profile` | Kullanıcı profili (korumalı) |
+| Method | Endpoint                    | Açıklama                     |
+| ------ | --------------------------- | ---------------------------- |
+| POST   | `/api/v1/auth/register`     | Kullanıcı kaydı (role-based) |
+| POST   | `/api/v1/auth/login`        | Kullanıcı girişi             |
+| POST   | `/api/v1/auth/google-login` | Google ile giriş/kayıt       |
+| POST   | `/api/v1/auth/refresh`      | Token yenileme               |
+| GET    | `/api/v1/auth/profile`      | Kullanıcı profili (korumalı) |
 
 ### Users
 
-| Method | Endpoint | Açıklama |
-|--------|----------|----------|
-| GET | `/api/v1/users` | Tüm kullanıcıları getir (pagination ile) |
-| GET | `/api/v1/users/:id` | Belirli kullanıcıyı getir |
-| POST | `/api/v1/users` | Yeni kullanıcı oluştur |
-| PUT | `/api/v1/users/:id` | Kullanıcıyı güncelle |
-| DELETE | `/api/v1/users/:id` | Kullanıcıyı sil |
+| Method | Endpoint            | Açıklama                                 |
+| ------ | ------------------- | ---------------------------------------- |
+| GET    | `/api/v1/users`     | Tüm kullanıcıları getir (pagination ile) |
+| GET    | `/api/v1/users/:id` | Belirli kullanıcıyı getir                |
+| POST   | `/api/v1/users`     | Yeni kullanıcı oluştur                   |
+| PUT    | `/api/v1/users/:id` | Kullanıcıyı güncelle                     |
+| DELETE | `/api/v1/users/:id` | Kullanıcıyı sil                          |
 
 ### File Uploads (MinIO)
 
-| Method | Endpoint | Açıklama |
-|--------|----------|----------|
-| POST | `/api/v1/uploads/profile-photo` | Profil fotoğrafı yükle |
-| POST | `/api/v1/uploads/documents` | Doküman yükle (çoklu) |
-| DELETE | `/api/v1/uploads/:bucketType/:fileName` | Dosya sil |
-| GET | `/api/v1/uploads/:bucketType/:fileName/url` | Dosya URL'i al |
-| GET | `/api/v1/uploads/:bucketType/list` | Kullanıcı dosyalarını listele |
+| Method | Endpoint                                    | Açıklama                      |
+| ------ | ------------------------------------------- | ----------------------------- |
+| POST   | `/api/v1/uploads/profile-photo`             | Profil fotoğrafı yükle        |
+| POST   | `/api/v1/uploads/documents`                 | Doküman yükle (çoklu)         |
+| DELETE | `/api/v1/uploads/:bucketType/:fileName`     | Dosya sil                     |
+| GET    | `/api/v1/uploads/:bucketType/:fileName/url` | Dosya URL'i al                |
+| GET    | `/api/v1/uploads/:bucketType/list`          | Kullanıcı dosyalarını listele |
 
 ### Pagination Parametreleri
 
@@ -129,12 +140,13 @@ npm start
 ## 📋 Örnek Kullanım
 
 ### Kullanıcı Kaydı (GOALKEEPER)
+
 ```bash
 curl -X POST http://localhost:3000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "firstName": "Ahmet",
-    "lastName": "Yılmaz", 
+    "lastName": "Yılmaz",
     "username": "ahmet_kaleci",
     "email": "ahmet@example.com",
     "password": "123456",
@@ -146,6 +158,7 @@ curl -X POST http://localhost:3000/api/v1/auth/register \
 ```
 
 ### Kullanıcı Girişi
+
 ```bash
 curl -X POST http://localhost:3000/api/v1/auth/login \
   -H "Content-Type: application/json" \
@@ -155,7 +168,31 @@ curl -X POST http://localhost:3000/api/v1/auth/login \
   }'
 ```
 
+### Google ile Giriş (İlk Kayıt)
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/google-login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idToken": "GOOGLE_ID_TOKEN_HERE",
+    "role": "USER",
+    "location": "İstanbul",
+    "phone": "5551234567"
+  }'
+```
+
+### Google ile Giriş (Mevcut Kullanıcı)
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/google-login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idToken": "GOOGLE_ID_TOKEN_HERE"
+  }'
+```
+
 ### Profil Fotoğrafı Yükleme
+
 ```bash
 curl -X POST http://localhost:3000/api/v1/uploads/profile-photo \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -163,6 +200,7 @@ curl -X POST http://localhost:3000/api/v1/uploads/profile-photo \
 ```
 
 ### Doküman Yükleme (FOOTBALL_FIELD_OWNER için)
+
 ```bash
 curl -X POST http://localhost:3000/api/v1/uploads/documents \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -201,13 +239,16 @@ Bu proje **Services Pattern** mimarisini kullanır:
 Proje aşağıdaki environment variable'ları kullanır:
 
 ### Server Configuration
+
 - `PORT`: Server port (default: 3000)
 - `NODE_ENV`: Environment (development/production)
 
 ### Database Configuration
+
 - `DATABASE_URL`: PostgreSQL connection string
 
 ### MinIO Configuration
+
 - `MINIO_ENDPOINT`: MinIO server endpoint (default: localhost)
 - `MINIO_PORT`: MinIO port (default: 9000)
 - `MINIO_USE_SSL`: Use SSL connection (default: false)
@@ -216,10 +257,12 @@ Proje aşağıdaki environment variable'ları kullanır:
 - `MINIO_PUBLIC_URL`: Public URL for MinIO (default: http://localhost:9000)
 
 ### JWT Configuration
+
 - `JWT_SECRET`: JWT signing secret
 - `JWT_EXPIRES_IN`: Token expiration time (default: 7d)
 
 ### Redis Configuration
+
 - `REDIS_URL`: Redis connection string
 
 ## 🔧 Scripts
@@ -233,6 +276,7 @@ Proje aşağıdaki environment variable'ları kullanır:
 ## 🧪 Health Check
 
 Server durumunu kontrol etmek için:
+
 ```bash
 curl http://localhost:3000/health
 ```
@@ -240,16 +284,19 @@ curl http://localhost:3000/health
 ## 🐳 Docker Kullanımı
 
 ### 1. Sadece Veritabanı ve MinIO
+
 ```bash
 docker-compose up -d postgres redis minio
 ```
 
 ### 2. Tüm Stack (Development)
+
 ```bash
 docker-compose -f docker-compose.dev.yml up
 ```
 
 ### 3. Production
+
 ```bash
 docker-compose up -d
 ```
@@ -261,6 +308,7 @@ docker-compose up -d
 - **Şifre**: minioadmin123
 
 ### Bucket'lar
+
 - `profile-photos`: Profil fotoğrafları (public)
 - `documents`: Kullanıcı dokümanları (private)
 - `general-uploads`: Genel dosyalar
@@ -268,20 +316,24 @@ docker-compose up -d
 ## 👥 Kullanıcı Rolleri
 
 ### USER
+
 - Temel kullanıcı
 - Profil fotoğrafı yükleyebilir
 - Temel bilgiler yeterli
 
 ### GOALKEEPER
+
 - Kaleci rolü
 - `lisans: true` otomatik atanır
 - Telefon, lokasyon ve bio zorunlu
 
 ### REFEREE
+
 - Hakem rolü
 - Telefon ve lokasyon zorunlu
 
 ### FOOTBALL_FIELD_OWNER
+
 - Saha sahibi
 - Telefon ve lokasyon zorunlu
 - Doküman yükleme gerekli
@@ -291,6 +343,7 @@ docker-compose up -d
 Proje GitHub Actions ile otomatik test ve deployment pipeline'ına sahiptir:
 
 ### Test Pipeline
+
 - ✅ **Automated Testing**: Jest ile unit ve integration testleri
 - ✅ **Code Quality**: ESLint ve Prettier kontrolü
 - ✅ **Security Audit**: npm audit ile güvenlik kontrolü
@@ -300,12 +353,14 @@ Proje GitHub Actions ile otomatik test ve deployment pipeline'ına sahiptir:
 - ✅ **Coverage Report**: Codecov entegrasyonu
 
 ### Pipeline Jobs
+
 1. **🧪 Test Job**: Testler, build ve API kontrolü
 2. **🔍 Lint Job**: Code quality ve security audit (paralel)
 3. **🚀 Deploy Job**: Staging deployment (main branch)
 4. **📢 Notify Job**: Pipeline sonuç bildirimleri
 
 ### Kullanım
+
 ```bash
 # Local test pipeline
 npm run test:ci
@@ -322,6 +377,7 @@ Detaylı bilgi için: [GitHub Actions Documentation](docs/github-actions.md)
 ## 🧪 Testing
 
 ### Test Konfigürasyonu
+
 ```bash
 # Jest test framework
 npm test                    # Test çalıştır
@@ -331,6 +387,7 @@ npm run test:ci            # CI mode (no watch)
 ```
 
 ### Test Environment Variables
+
 ```bash
 NODE_ENV=test
 DATABASE_URL=postgresql://postgres:postgres123@localhost:5432/express_api_test_db
@@ -353,4 +410,4 @@ JWT_SECRET=test-secret
 - [ ] API documentation (Swagger)
 - [ ] Logging (Winston)
 - [ ] Email verification
-- [ ] Real-time notifications (Socket.io) 
+- [ ] Real-time notifications (Socket.io)

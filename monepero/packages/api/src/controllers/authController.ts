@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/authService';
 import { UserSessionService } from '../services/userSessionService';
-import { ApiResponse, RegisterDto, LoginDto, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto, TerminateSessionDto, TerminateOtherSessionsDto } from '../types';
+import { ApiResponse, RegisterDto, LoginDto, GoogleLoginDto, AppleLoginDto, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto, TerminateSessionDto, TerminateOtherSessionsDto } from '../types';
 import { metricsService } from '../services/metricsService';
 
 const authService = new AuthService();
@@ -19,10 +19,10 @@ export class AuthController {
             };
 
             // Basic validation
-            if (!userData.firstName || !userData.lastName || !userData.username || !userData.email || !userData.password || !userData.phone) {
+            if (!userData.firstName || !userData.lastName || !userData.username || !userData.email) {
                 const response: ApiResponse = {
                     success: false,
-                    message: 'First name, last name, username, email, phone and password are required',
+                    message: 'First name, last name, username and email are required',
                     timestamp: new Date().toISOString(),
                     statusCode: 400
                 };
@@ -41,8 +41,8 @@ export class AuthController {
                 return;
             }
 
-            // Password validation
-            if (userData.password.length < 6) {
+            // Password validation (sadece password varsa)
+            if (userData.password && userData.password.length < 6) {
                 const response: ApiResponse = {
                     success: false,
                     message: 'Password must be at least 6 characters long',
@@ -115,9 +115,17 @@ export class AuthController {
                 metricsService.recordAuthFailure('login', result.error || 'unknown_error');
             }
 
+            let message = result.success ? 'Login successful' : result.error || 'Failed to login';
+            
+            if (result.error === 'GOOGLE_LOGIN_REQUIRED') {
+                message = 'This account was created with Google. Please use Google login.';
+            } else if (result.error === 'APPLE_LOGIN_REQUIRED') {
+                message = 'This account was created with Apple. Please use Apple login.';
+            }
+
             const response: ApiResponse = {
                 success: result.success,
-                message: result.success ? 'Login successful' : result.error || 'Failed to login',
+                message: message,
                 data: result.data,
                 timestamp: new Date().toISOString(),
                 statusCode: result.statusCode
@@ -134,6 +142,222 @@ export class AuthController {
                 statusCode: 500
             };
 
+            res.status(500).json(response);
+        }
+    }
+
+    async googleLogin(req: Request, res: Response): Promise<void> {
+        try {
+            console.log('🔍 Google login called with User-Agent:', req.headers['user-agent']);
+            console.log('🔍 Google login called with IP:', req.ip);
+
+            const googleData: GoogleLoginDto = req.body;
+
+            // Record login attempt
+            metricsService.recordAuthAttempt('google_login');
+
+            // Basic validation
+            if (!googleData.idToken) {
+                metricsService.recordAuthFailure('google_login', 'missing_id_token');
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Google ID token is required',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            const result = await authService.googleLogin(googleData, req);
+
+            // Record metrics based on result
+            if (result.success) {
+                metricsService.recordAuthSuccess('google_login');
+            } else if (result.statusCode !== 404) { // 404, kayıt gerekli durumu olduğu için hata sayılmaz
+                metricsService.recordAuthFailure('google_login', result.error || 'unknown_error');
+            }
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.error === 'REGISTRATION_REQUIRED' ? 'User not found, registration required' : (result.success ? 'Google login successful' : result.error || 'Failed to login with Google'),
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+
+            res.status(500).json(response);
+        }
+    }
+
+    async completeGoogleRegistration(req: Request, res: Response): Promise<void> {
+        try {
+            const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+            
+            const registrationData: RegisterDto = {
+                ...req.body,
+                documents: files?.documents || [] // Multiple documents for FOOTBALL_FIELD_OWNER
+            };
+
+            // Basic validation
+            if (!registrationData.googleId || !registrationData.email || !registrationData.username || !registrationData.role || !registrationData.phone || !registrationData.location || !registrationData.password) {
+                res.status(400).json({
+                    success: false,
+                    message: 'googleId, email, username, phone, location, role and password are required to complete registration.',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                });
+                return;
+            }
+
+            // FOOTBALL_FIELD_OWNER için document kontrolü
+            if (registrationData.role === 'FOOTBALL_FIELD_OWNER' && (!registrationData.documents || registrationData.documents.length === 0)) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Documents are required for FOOTBALL_FIELD_OWNER role.',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                });
+                return;
+            }
+
+            const result = await authService.completeGoogleRegistration(registrationData, req);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success ? 'Google registration successful' : result.error || 'Failed to complete registration',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
+            };
+
+            res.status(result.statusCode || 500).json(response);
+
+        } catch (error) {
+             const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+            res.status(500).json(response);
+        }
+    }
+
+    async appleLogin(req: Request, res: Response): Promise<void> {
+        try {
+            console.log('🔍 Apple login called with User-Agent:', req.headers['user-agent']);
+            console.log('🔍 Apple login called with IP:', req.ip);
+
+            const appleData: AppleLoginDto = req.body;
+
+            // Record login attempt
+            metricsService.recordAuthAttempt('apple_login');
+
+            // Basic validation
+            if (!appleData.identityToken) {
+                metricsService.recordAuthFailure('apple_login', 'missing_identity_token');
+                const response: ApiResponse = {
+                    success: false,
+                    message: 'Apple identity token is required',
+                    timestamp: new Date().toISOString(),
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            const result = await authService.appleLogin(appleData, req);
+
+            // Record metrics based on result
+            if (result.success) {
+                metricsService.recordAuthSuccess('apple_login');
+            } else if (result.statusCode !== 404) { // 404, kayıt gerekli durumu olduğu için hata sayılmaz
+                metricsService.recordAuthFailure('apple_login', result.error || 'unknown_error');
+            }
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.error === 'REGISTRATION_REQUIRED' ? 'User not found, registration required' : (result.success ? 'Apple login successful' : result.error || 'Failed to login with Apple'),
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
+            };
+
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+
+            res.status(500).json(response);
+        }
+    }
+
+    async completeAppleRegistration(req: Request, res: Response): Promise<void> {
+        try {
+            const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+            
+            const registrationData: RegisterDto = {
+                ...req.body,
+                documents: files?.documents || [] // Multiple documents for FOOTBALL_FIELD_OWNER
+            };
+
+            // Basic validation
+            if (!registrationData.appleId || !registrationData.email || !registrationData.username || !registrationData.role || !registrationData.phone || !registrationData.location || !registrationData.password) {
+                res.status(400).json({
+                    success: false,
+                    message: 'appleId, email, username, phone, location, role and password are required to complete registration.',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                });
+                return;
+            }
+
+            // FOOTBALL_FIELD_OWNER için document kontrolü
+            if (registrationData.role === 'FOOTBALL_FIELD_OWNER' && (!registrationData.documents || registrationData.documents.length === 0)) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Documents are required for FOOTBALL_FIELD_OWNER role.',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                });
+                return;
+            }
+
+            const result = await authService.completeAppleRegistration(registrationData, req);
+
+            const response: ApiResponse = {
+                success: result.success,
+                message: result.success ? 'Apple registration successful' : result.error || 'Failed to complete registration',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
+            };
+
+            res.status(result.statusCode || 500).json(response);
+
+        } catch (error) {
+             const response: ApiResponse = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
             res.status(500).json(response);
         }
     }

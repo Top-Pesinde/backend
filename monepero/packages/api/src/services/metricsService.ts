@@ -170,15 +170,15 @@ export class MetricsService {
         this.httpRequestsTotal.inc({ method, route, status_code: statusCode.toString() });
     }
 
-    public recordAuthAttempt(type: 'login' | 'register' | 'refresh') {
+    public recordAuthAttempt(type: 'login' | 'register' | 'refresh' | 'google_login' | 'apple_login') {
         this.authAttemptsTotal.inc({ type });
     }
 
-    public recordAuthSuccess(type: 'login' | 'register' | 'refresh') {
+    public recordAuthSuccess(type: 'login' | 'register' | 'refresh' | 'google_login' | 'apple_login') {
         this.authSuccessTotal.inc({ type });
     }
 
-    public recordAuthFailure(type: 'login' | 'register' | 'refresh', reason: string) {
+    public recordAuthFailure(type: 'login' | 'register' | 'refresh' | 'google_login' | 'apple_login', reason: string) {
         this.authFailuresTotal.inc({ type, reason });
     }
 

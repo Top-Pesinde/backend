@@ -16,8 +16,8 @@ model User {
   lastName      String    @map("last_name")
   username      String    @unique
   email         String    @unique
-  password      String
-  phone         String
+  password      String?   // Google login için opsiyonel
+  phone         String?   // Google login için opsiyonel
   location      String?
   bio           String?
   profilePhoto  String?   @map("profile_photo")
@@ -26,6 +26,8 @@ model User {
   subscription  Boolean   @default(false) @map("subscription")
   resetToken    String?   @map("reset_token")
   resetTokenExpires DateTime? @map("reset_token_expires")
+  googleId      String?   @unique @map("google_id") // Google kimlik doğrulama için
+  appleId       String?   @unique @map("apple_id")  // Apple Sign In için
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
   documents          Document[]

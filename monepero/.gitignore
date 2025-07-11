@@ -12,9 +12,6 @@ dist/
 build/
 .next/
 
-# Environment variables
-.env*
-!.env.example
 
 # OS generated files
 .DS_Store

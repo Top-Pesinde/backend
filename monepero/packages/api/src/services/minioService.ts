@@ -101,6 +101,56 @@ export class MinioService {
         }
     }
 
+    async uploadProfilePhotoFromUrl(
+        imageUrl: string,
+        userId: string
+    ): Promise<ServiceResponse<{ url: string; fileName: string }>> {
+        try {
+            // URL'den resmi indir
+            const response = await fetch(imageUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch image from URL: ${response.statusText}`);
+            }
+
+            const imageBuffer = Buffer.from(await response.arrayBuffer());
+            const contentType = response.headers.get('content-type') || 'image/jpeg';
+            
+            // Dosya uzantısını belirle
+            const extension = contentType.split('/')[1] || 'jpg';
+            const fileName = `profile-${userId}-${Date.now()}.${extension}`;
+
+            await this.minioClient.putObject(
+                this.PROFILE_PHOTOS_BUCKET,
+                fileName,
+                imageBuffer,
+                imageBuffer.length,
+                {
+                    'Content-Type': contentType,
+                    'Cache-Control': 'max-age=31536000', // 1 year
+                }
+            );
+
+            // Generate public URL for profile photo
+            const baseUrl = process.env.MINIO_PUBLIC_URL || 'http://localhost:9000';
+            const url = `${baseUrl}/${this.PROFILE_PHOTOS_BUCKET}/${fileName}`;
+
+            console.log(`✅ Profile photo uploaded from URL: ${fileName} -> ${url}`);
+
+            return {
+                success: true,
+                data: { url, fileName },
+                statusCode: 200,
+            };
+        } catch (error) {
+            console.error('Error uploading profile photo from URL:', error);
+            return {
+                success: false,
+                error: 'Failed to upload profile photo from URL',
+                statusCode: 500,
+            };
+        }
+    }
+
     async uploadDocument(
         file: Express.Multer.File,
         userId: string

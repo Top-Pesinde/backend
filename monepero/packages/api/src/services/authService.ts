@@ -1,7 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { ServiceResponse, RegisterDto, LoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto, Platform, User } from '../types';
+import { OAuth2Client } from 'google-auth-library';
+import { ServiceResponse, RegisterDto, LoginDto, GoogleLoginDto, AppleLoginDto, AuthResponse, JwtPayload, Role, StatusChangeDto, SubscriptionChangeDto, UpdateProfileDto, ChangePasswordDto, UpdateContactInfoDto, ForgotPasswordDto, ResetPasswordDto, Platform, User } from '../types';
+import fetch from 'node-fetch';
 import { prisma } from '../lib/prisma';
 import { sendEmail } from '../mail';
 import { UserSessionService } from './userSessionService';
@@ -13,23 +15,43 @@ export class AuthService {
     private readonly REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '60d';
     private readonly SALT_ROUNDS = 12;
     private sessionService = new UserSessionService();
+    private googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
     async register(userData: RegisterDto, req?: any): Promise<ServiceResponse<AuthResponse>> {
         try {
-            // Check if email or username already exists
+            // Check if email, username or phone already exists
             const existingUser = await prisma.user.findFirst({
                 where: {
                     OR: [
                         { email: userData.email },
-                        { username: userData.username }
+                        { username: userData.username },
+                        ...(userData.phone ? [{ phone: userData.phone }] : [])
                     ]
                 }
             });
 
             if (existingUser) {
+                // Hangi alanın duplicate olduğunu belirle
+                let errorMessage = 'User already exists';
+                if (existingUser.email === userData.email) {
+                    errorMessage = 'Email address is already in use';
+                } else if (existingUser.username === userData.username) {
+                    errorMessage = 'Username is already taken';
+                } else if (existingUser.phone === userData.phone) {
+                    errorMessage = 'Phone number is already registered';
+                }
                 return {
                     success: false,
-                    error: existingUser.email === userData.email ? 'Email already exists' : 'Username already exists',
+                    error: errorMessage,
+                    statusCode: 400,
+                };
+            }
+
+            // Password zorunlu kontrolü (Google login haricinde)
+            if (!userData.password) {
+                return {
+                    success: false,
+                    error: 'Password is required for registration',
                     statusCode: 400,
                 };
             }
@@ -253,6 +275,33 @@ export class AuthService {
                 };
             }
 
+            // Check if user has a password (not Google/Apple-only user)
+            if (!user.password) {
+                // Eğer Google ID'si varsa Google ile giriş yapması gerekiyor
+                if (user.googleId) {
+                    return {
+                        success: false,
+                        error: 'GOOGLE_LOGIN_REQUIRED',
+                        statusCode: 400,
+                    };
+                }
+                // Eğer Apple ID'si varsa Apple ile giriş yapması gerekiyor
+                else if (user.appleId) {
+                    return {
+                        success: false,
+                        error: 'APPLE_LOGIN_REQUIRED',
+                        statusCode: 400,
+                    };
+                } else {
+                    // Normal kullanıcının şifresi yoksa sistem hatası
+                    return {
+                        success: false,
+                        error: 'Account has no password. Please contact support.',
+                        statusCode: 500,
+                    };
+                }
+            }
+
             // Verify password
             const isPasswordValid = await bcrypt.compare(loginData.password, user.password);
             if (!isPasswordValid) {
@@ -407,13 +456,9 @@ export class AuthService {
     }
 
     private validateRoleRequirements(userData: RegisterDto): { isValid: boolean; error?: string } {
-        // Phone is now required for ALL roles
-        if (!userData.phone) {
-            return {
-                isValid: false,
-                error: 'Phone number is required for all roles'
-            };
-        }
+        // Phone artık opsiyonel (Google login için)
+        // Sadece normal registration için phone kontrolü yapılacak
+        // Google login durumunda phone null olabilir
 
         switch (userData.role) {
             case 'USER':
@@ -717,6 +762,15 @@ export class AuthService {
                 };
             }
 
+            // Google kullanıcıları için password kontrolü
+            if (!user.password) {
+                return {
+                    success: false,
+                    error: 'This account was created with Google. Password cannot be changed.',
+                    statusCode: 400
+                };
+            }
+
             const isPasswordValid = await bcrypt.compare(passwordData.currentPassword, user.password);
 
             if (!isPasswordValid) {
@@ -931,8 +985,8 @@ export class AuthService {
 
                 normalizedPhone = this.normalizePhoneNumber(contactData.phone);
 
-                // Normalize existing user's phone for comparison
-                const existingUserNormalizedPhone = this.normalizePhoneNumber(existingUser.phone);
+                // Normalize existing user's phone for comparison (if exists)
+                const existingUserNormalizedPhone = existingUser.phone ? this.normalizePhoneNumber(existingUser.phone) : null;
 
                 // Check if phone already exists (exclude current user)
                 if (normalizedPhone !== existingUserNormalizedPhone) {
@@ -1316,14 +1370,524 @@ export class AuthService {
     async findUserByEmail(email: string): Promise<User | null> {
         return await prisma.user.findUnique({
             where: { email }
-        });
+        }) as User | null;
     }
 
 
     async findUserByPhone(phone: string, userId: string): Promise<User | null> {
         return await prisma.user.findFirst({
             where: { phone, id: { not: userId } }
-        });
+        }) as User | null;
     }
 
+    async verifyGoogleToken(idToken: string): Promise<{ success: boolean; payload?: any; error?: string }> {
+        try {
+            const ticket = await this.googleClient.verifyIdToken({
+                idToken: idToken,
+                audience: process.env.GOOGLE_CLIENT_ID,
+            });
+
+            const payload = ticket.getPayload();
+            if (!payload) {
+                return {
+                    success: false,
+                    error: 'Invalid Google token payload',
+                };
+            }
+
+            return {
+                success: true,
+                payload,
+            };
+        } catch (error) {
+            console.error('Google token verification error:', error);
+            return {
+                success: false,
+                error: 'Failed to verify Google token',
+            };
+        }
+    }
+
+    async verifyAppleToken(identityToken: string): Promise<{ success: boolean; payload?: any; error?: string }> {
+        try {
+            // Basit token doğrulama - sadece payload'ı decode et (development için)
+            // Production'da Apple'ın public key'i ile doğrulama yapılmalı
+            const payload = jwt.decode(identityToken) as any;
+            
+            if (!payload) {
+                return { success: false, error: 'Invalid token payload' };
+            }
+
+            // Temel doğrulamalar
+            if (payload.iss !== 'https://appleid.apple.com') {
+                return { success: false, error: 'Invalid issuer' };
+            }
+
+            if (payload.aud !== (process.env.APPLE_CLIENT_ID || 'com.toppesinde.app')) {
+                return { success: false, error: 'Invalid audience' };
+            }
+
+            // Token süresi kontrolü
+            if (payload.exp && Date.now() >= payload.exp * 1000) {
+                return { success: false, error: 'Token expired' };
+            }
+
+            return { success: true, payload };
+        } catch (error) {
+            console.error('Apple token verification error:', error);
+            return { 
+                success: false, 
+                error: 'Failed to verify Apple token'
+            };
+        }
+    }
+
+    async googleLogin(googleData: GoogleLoginDto, req?: any): Promise<ServiceResponse<AuthResponse | any>> {
+        try {
+            // Google token'ı doğrula
+            const verificationResult = await this.verifyGoogleToken(googleData.idToken);
+            if (!verificationResult.success || !verificationResult.payload) {
+                return {
+                    success: false,
+                    error: verificationResult.error || 'Invalid Google token',
+                    statusCode: 401,
+                };
+            }
+
+            const { sub: googleId, email, given_name, family_name, picture } = verificationResult.payload;
+
+            if (!email || !googleId) {
+                return {
+                    success: false,
+                    error: 'Required Google account information not found',
+                    statusCode: 400,
+                };
+            }
+
+            // Google ID veya email ile kullanıcıyı ara
+            let user = await prisma.user.findFirst({
+                where: { OR: [{ googleId }, { email }] },
+                include: { documents: true }
+            });
+
+            // Kullanıcı bulunduysa, giriş yap
+            if (user) {
+                // Eğer kullanıcı email ile bulunduysa ve googleId'si yoksa, ekle
+                if (!user.googleId) {
+                    user = await prisma.user.update({
+                        where: { id: user.id },
+                        data: { googleId },
+                        include: { documents: true }
+                    });
+                }
+
+                // Kullanıcının aktif olup olmadığını kontrol et
+                if (!user.status) {
+                    return {
+                        success: false,
+                        error: user.role === 'FOOTBALL_FIELD_OWNER' 
+                            ? 'Account is pending admin approval. Please wait for activation.' 
+                            : 'Account is deactivated. Please contact support.',
+                        statusCode: 403,
+                    };
+                }
+                // Mevcut kullanıcı için session oluştur ve tokenları dön
+                return this.createSessionAndTokens(user, googleData, req);
+            }
+
+            // Kullanıcı bulunamadıysa, kayıt için gerekli bilgileri dön
+            return {
+                success: false,
+                error: 'REGISTRATION_REQUIRED',
+                statusCode: 404,
+                data: {
+                    googleId,
+                    email,
+                    firstName: given_name || '',
+                    lastName: family_name || '',
+                    profilePhotoUrl: picture || null
+                }
+            };
+
+        } catch (error) {
+            console.error('Error in Google login:', error);
+            return {
+                success: false,
+                error: 'Google login failed',
+                statusCode: 500,
+            };
+        }
+    }
+
+    async completeGoogleRegistration(registrationData: RegisterDto, req?: any): Promise<ServiceResponse<AuthResponse>> {
+        try {
+            const { googleId, email, username, firstName, lastName, phone, location, bio, role, profilePhoto, password } = registrationData;
+
+            // Gerekli alanların kontrolü
+            if (!googleId || !email || !username || !firstName || !lastName || !phone || !location || !role || !password) {
+                return { success: false, error: 'All fields including location and password are required for registration', statusCode: 400 };
+            }
+
+            // FOOTBALL_FIELD_OWNER için document kontrolü
+            if (role === 'FOOTBALL_FIELD_OWNER' && (!registrationData.documents || registrationData.documents.length === 0)) {
+                return { success: false, error: 'Documents are required for FOOTBALL_FIELD_OWNER role', statusCode: 400 };
+            }
+
+            // Şifre kontrolü ve hash'leme
+            if (password.length < 6) {
+                return { success: false, error: 'Password must be at least 6 characters long', statusCode: 400 };
+            }
+            const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
+
+            // Kullanıcının zaten var olup olmadığını detaylı kontrol et
+            const existingUser = await prisma.user.findFirst({
+                where: { 
+                    OR: [
+                        { googleId },
+                        { email },
+                        { username },
+                        { phone }
+                    ]
+                }
+            });
+
+            if (existingUser) {
+                // Hangi alanın duplicate olduğunu belirle
+                let errorMessage = 'User already exists';
+                if (existingUser.googleId === googleId) {
+                    errorMessage = 'This Google account is already registered';
+                } else if (existingUser.email === email) {
+                    errorMessage = 'Email address is already in use';
+                } else if (existingUser.username === username) {
+                    errorMessage = 'Username is already taken';
+                } else if (existingUser.phone === phone) {
+                    errorMessage = 'Phone number is already registered';
+                }
+                return { success: false, error: errorMessage, statusCode: 409 };
+            }
+            
+            // Profil fotoğrafını URL'den yükle (eğer varsa)
+            let finalProfilePhotoUrl: string | null = null;
+            if (typeof profilePhoto === 'string' && profilePhoto.startsWith('http')) {
+                 try {
+                    const { MinioService } = await import('../services/minioService');
+                    const minioService = new MinioService();
+                    const uploadResult = await minioService.uploadProfilePhotoFromUrl(profilePhoto, username);
+                    if (uploadResult.success) {
+                        finalProfilePhotoUrl = uploadResult.data?.url || null;
+                    }
+                } catch (error) {
+                    console.error('Failed to upload profile photo from Google URL:', error);
+                }
+            }
+            
+            // FOOTBALL_FIELD_OWNER için status false, diğerleri için true
+            const userStatus = role === 'FOOTBALL_FIELD_OWNER' ? false : true;
+            
+            // Yeni kullanıcıyı oluştur
+             const newUser = await prisma.user.create({
+                 data: {
+                     googleId,
+                     email,
+                     username,
+                     firstName,
+                     lastName,
+                     phone,
+                     location,
+                     bio,
+                     role: role as any, // Role enum casting
+                     profilePhoto: finalProfilePhotoUrl,
+                     password: hashedPassword,
+                     status: userStatus, // FOOTBALL_FIELD_OWNER için false
+                 },
+                 include: { documents: true }
+             });
+
+            // Document upload handling (eğer varsa)
+            if (registrationData.documents && registrationData.documents.length > 0) {
+                await this.handleDocumentUpload(newUser.id, registrationData.documents);
+
+                // Refresh user data with documents
+                const updatedUser = await prisma.user.findUnique({
+                    where: { id: newUser.id },
+                    include: { documents: true }
+                });
+                if (updatedUser) {
+                    Object.assign(newUser, updatedUser);
+                }
+            }
+
+            // Yeni kullanıcı için session oluştur ve tokenları dön
+            return this.createSessionAndTokens(newUser, registrationData, req);
+
+        } catch (error) {
+            console.error('Error in completeGoogleRegistration:', error);
+            // Prisma'nın unique constraint hatasını yakala
+            if (error instanceof Error && (error as any).code === 'P2002') {
+                 return { success: false, error: 'Username or email already in use.', statusCode: 409 };
+            }
+            return { success: false, error: 'Google registration failed', statusCode: 500 };
+        }
+    }
+
+    async appleLogin(appleData: AppleLoginDto, req?: any): Promise<ServiceResponse<AuthResponse | any>> {
+        try {
+            // Apple token'ı doğrula
+            const verificationResult = await this.verifyAppleToken(appleData.identityToken);
+            if (!verificationResult.success || !verificationResult.payload) {
+                return {
+                    success: false,
+                    error: verificationResult.error || 'Invalid Apple token',
+                    statusCode: 401,
+                };
+            }
+
+            const { sub: appleId, email } = verificationResult.payload;
+
+            if (!appleId) {
+                return {
+                    success: false,
+                    error: 'Apple ID not found in token',
+                    statusCode: 400,
+                };
+            }
+
+            // Apple ID ile kullanıcıyı ara (email ile de ara çünkü email bazen null olabilir)
+            let user = await prisma.user.findFirst({
+                where: { 
+                    OR: [
+                        { appleId },
+                        ...(email ? [{ email }] : [])
+                    ]
+                },
+                include: { documents: true }
+            });
+
+            // Kullanıcı bulunduysa, giriş yap
+            if (user) {
+                // Eğer kullanıcı email ile bulunduysa ve appleId'si yoksa, ekle
+                if (!user.appleId) {
+                    user = await prisma.user.update({
+                        where: { id: user.id },
+                        data: { appleId },
+                        include: { documents: true }
+                    });
+                }
+
+                // Kullanıcının aktif olup olmadığını kontrol et
+                if (!user.status) {
+                    return {
+                        success: false,
+                        error: user.role === 'FOOTBALL_FIELD_OWNER' 
+                            ? 'Account is pending admin approval. Please wait for activation.' 
+                            : 'Account is deactivated. Please contact support.',
+                        statusCode: 403,
+                    };
+                }
+                // Mevcut kullanıcı için session oluştur ve tokenları dön
+                return this.createSessionAndTokens(user, appleData, req);
+            }
+
+            // Kullanıcı bulunamadıysa, kayıt için gerekli bilgileri dön
+            // Apple'da email ve isim bilgileri sadece ilk seferinde gelir
+            return {
+                success: false,
+                error: 'REGISTRATION_REQUIRED',
+                statusCode: 404,
+                data: {
+                    appleId,
+                    email: email || null,
+                    firstName: appleData.fullName?.givenName || '',
+                    lastName: appleData.fullName?.familyName || '',
+                    profilePhotoUrl: null // Apple profil fotoğrafı vermez
+                }
+            };
+
+        } catch (error) {
+            console.error('Error in Apple login:', error);
+            return {
+                success: false,
+                error: 'Apple login failed',
+                statusCode: 500,
+            };
+        }
+    }
+
+    async completeAppleRegistration(registrationData: RegisterDto, req?: any): Promise<ServiceResponse<AuthResponse>> {
+        try {
+            const { appleId, email, username, firstName, lastName, phone, location, bio, role, password } = registrationData;
+
+            // Gerekli alanların kontrolü
+            if (!appleId || !username || !firstName || !lastName || !phone || !location || !role || !password) {
+                return { success: false, error: 'All fields including location and password are required for registration', statusCode: 400 };
+            }
+
+            // Email kontrolü - Apple'da email opsiyonel olabilir
+            if (!email) {
+                return { success: false, error: 'Email is required for registration', statusCode: 400 };
+            }
+
+            // FOOTBALL_FIELD_OWNER için document kontrolü
+            if (role === 'FOOTBALL_FIELD_OWNER' && (!registrationData.documents || registrationData.documents.length === 0)) {
+                return { success: false, error: 'Documents are required for FOOTBALL_FIELD_OWNER role', statusCode: 400 };
+            }
+
+            // Şifre kontrolü ve hash'leme
+            if (password.length < 6) {
+                return { success: false, error: 'Password must be at least 6 characters long', statusCode: 400 };
+            }
+            const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
+
+            // Kullanıcının zaten var olup olmadığını detaylı kontrol et
+            const existingUser = await prisma.user.findFirst({
+                where: { 
+                    OR: [
+                        { appleId },
+                        { email },
+                        { username },
+                        { phone }
+                    ]
+                }
+            });
+
+            if (existingUser) {
+                // Hangi alanın duplicate olduğunu belirle
+                let errorMessage = 'User already exists';
+                if (existingUser.appleId === appleId) {
+                    errorMessage = 'This Apple account is already registered';
+                } else if (existingUser.email === email) {
+                    errorMessage = 'Email address is already in use';
+                } else if (existingUser.username === username) {
+                    errorMessage = 'Username is already taken';
+                } else if (existingUser.phone === phone) {
+                    errorMessage = 'Phone number is already registered';
+                }
+                return { success: false, error: errorMessage, statusCode: 409 };
+            }
+            
+            // FOOTBALL_FIELD_OWNER için status false, diğerleri için true
+            const userStatus = role === 'FOOTBALL_FIELD_OWNER' ? false : true;
+            
+            // Yeni kullanıcıyı oluştur
+            const newUser = await prisma.user.create({
+                data: {
+                    appleId,
+                    email,
+                    username,
+                    firstName,
+                    lastName,
+                    phone,
+                    location,
+                    bio,
+                    role: role as any, // Role enum casting
+                    profilePhoto: null, // Apple profil fotoğrafı vermez
+                    password: hashedPassword,
+                    status: userStatus, // FOOTBALL_FIELD_OWNER için false
+                },
+                include: { documents: true }
+            });
+
+            // Document upload handling (eğer varsa)
+            if (registrationData.documents && registrationData.documents.length > 0) {
+                await this.handleDocumentUpload(newUser.id, registrationData.documents);
+
+                // Refresh user data with documents
+                const updatedUser = await prisma.user.findUnique({
+                    where: { id: newUser.id },
+                    include: { documents: true }
+                });
+                if (updatedUser) {
+                    Object.assign(newUser, updatedUser);
+                }
+            }
+
+            // Yeni kullanıcı için session oluştur ve tokenları dön
+            return this.createSessionAndTokens(newUser, registrationData, req);
+
+        } catch (error) {
+            console.error('Error in completeAppleRegistration:', error);
+            // Prisma'nın unique constraint hatasını yakala
+            if (error instanceof Error && (error as any).code === 'P2002') {
+                 return { success: false, error: 'Username or email already in use.', statusCode: 409 };
+            }
+            return { success: false, error: 'Apple registration failed', statusCode: 500 };
+        }
+    }
+
+    private async createSessionAndTokens(user: User, requestData: LoginDto | GoogleLoginDto | AppleLoginDto | RegisterDto, req: any): Promise<ServiceResponse<AuthResponse>> {
+        const sessionToken = this.sessionService.generateSessionToken();
+
+        let deviceInfo: string | null = null;
+        let platform: Platform | null = null;
+        if (requestData.deviceName || requestData.browserName) {
+            deviceInfo = this.sessionService.parseDeviceInfo(undefined, requestData.deviceName, requestData.browserName);
+            platform = requestData.platform || null;
+        } else {
+            const userAgent = req?.headers?.['user-agent'];
+            deviceInfo = this.sessionService.parseDeviceInfo(userAgent);
+            platform = requestData.platform || this.sessionService.detectPlatform(userAgent || '');
+        }
+
+        const ipAddress = req?.ip || req?.connection?.remoteAddress || req?.socket?.remoteAddress;
+        
+        let location: string | null = null;
+        if ('latitude' in requestData && 'longitude' in requestData && requestData.latitude && requestData.longitude) {
+            location = await this.sessionService.getLocationFromCoordinates(requestData.latitude, requestData.longitude);
+        } else if (requestData.location) {
+            location = requestData.location;
+        } else {
+            location = await this.sessionService.getLocationFromIP(ipAddress);
+        }
+
+        const sessionExpiresAt = new Date();
+        if (this.REFRESH_TOKEN_EXPIRES_IN.includes('d')) {
+            sessionExpiresAt.setDate(sessionExpiresAt.getDate() + parseInt(this.REFRESH_TOKEN_EXPIRES_IN));
+        } else {
+            sessionExpiresAt.setHours(sessionExpiresAt.getHours() + 1); // Default 1 hour
+        }
+
+        const sessionResult = await this.sessionService.createSession({
+            userId: user.id,
+            sessionToken,
+            deviceInfo,
+            ipAddress,
+            location,
+            platform,
+            expiresAt: sessionExpiresAt
+        });
+
+        if (!sessionResult.success) {
+            return { success: false, error: 'Failed to create session', statusCode: 500 };
+        }
+
+        const tokenPayload: JwtPayload = {
+            userId: user.id,
+            email: user.email,
+            role: user.role as Role,
+            jti: sessionToken,
+        };
+
+        const accessToken = this.generateAccessToken(tokenPayload);
+        const refreshToken = this.generateRefreshToken(tokenPayload);
+
+        const { password, ...userWithoutPassword } = user;
+
+        return {
+            success: true,
+            data: {
+                user: userWithoutPassword as User,
+                accessToken,
+                refreshToken,
+                accessTokenExpiresIn: this.ACCESS_TOKEN_EXPIRES_IN,
+                refreshTokenExpiresIn: this.REFRESH_TOKEN_EXPIRES_IN,
+                sessionInfo: {
+                    sessionId: sessionResult.data!.id,
+                    deviceInfo,
+                    location,
+                    platform
+                }
+            },
+            statusCode: 200,
+        };
+    }
 }

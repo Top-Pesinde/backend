@@ -24,7 +24,8 @@ export interface User {
     lastName: string;
     username: string;
     email: string;
-    phone: string; // Now required for all roles
+    password?: string | null; // Nullable for Google users
+    phone?: string | null; // Google login için opsiyonel
     location?: string | null;
     bio?: string | null;
     profilePhoto?: string | null;
@@ -54,7 +55,7 @@ export interface CreateUserDto {
     lastName: string;
     username: string;
     email: string;
-    phone: string; // Now required for all roles
+    phone?: string; // Google login için opsiyonel
     location?: string;
     bio?: string;
     profilePhoto?: string;
@@ -80,11 +81,11 @@ export interface RegisterDto {
     lastName: string;
     username: string;
     email: string;
-    password: string;
-    phone: string; // Now required for all roles
+    password?: string; // Google login için opsiyonel
+    phone?: string; // Google login için opsiyonel
     location?: string;
     bio?: string;
-    profilePhoto?: any; // Multer file object
+    profilePhoto?: any; // Multer file object or URL
     lisans?: boolean; // Now configurable for GOALKEEPER and REFEREE
     role: Role;
     documents?: any[]; // Multer file objects
@@ -94,6 +95,8 @@ export interface RegisterDto {
     latitude?: number;      // Enlem (örn: 41.0082)
     longitude?: number;     // Boylam (örn: 28.9784)
     sessionLocation?: string; // Eski uyumluluk için
+    googleId?: string;      // Google kaydını tamamlamak için
+    appleId?: string;       // Apple kaydını tamamlamak için
 }
 
 export interface LoginDto {
@@ -106,6 +109,33 @@ export interface LoginDto {
     latitude?: number;      // Enlem (örn: 41.0082)
     longitude?: number;     // Boylam (örn: 28.9784)
     location?: string;      // Eski uyumluluk için (şehir adı)
+}
+
+export interface GoogleLoginDto {
+    idToken: string;
+    deviceName?: string;    // Örn: "iPhone 15", "Samsung Galaxy S23", "Windows PC"
+    browserName?: string;   // Örn: "Safari", "Chrome", "Firefox"
+    platform?: Platform;    // IOS, ANDROID, WEB
+    deviceInfo?: string;    // Eski uyumluluk için
+    latitude?: number;      // Enlem (örn: 41.0082)
+    longitude?: number;     // Boylam (örn: 28.9784)
+    location?: string;      // Eski uyumluluk için (şehir adı)
+}
+
+export interface AppleLoginDto {
+    identityToken: string;  // Apple'ın identity token'ı
+    authorizationCode?: string; // Apple'ın authorization code'u (opsiyonel)
+    fullName?: {            // İlk login'de gelen isim bilgileri
+        givenName?: string;
+        familyName?: string;
+    };
+    email?: string;         // İlk login'de gelen email (sonrakilerinde null olabilir)
+    deviceName?: string;    // Örn: "iPhone 15", "Samsung Galaxy S23", "Windows PC"
+    browserName?: string;   // Örn: "Safari", "Chrome", "Firefox"
+    platform?: Platform;    // IOS, ANDROID, WEB
+    latitude?: number;      // Enlem (örn: 41.0082)
+    longitude?: number;     // Boylam (örn: 28.9784)
+    location?: string;      // Şehir adı
 }
 
 export interface StatusChangeDto {

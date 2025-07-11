@@ -40,6 +40,22 @@ router.post('/register', upload.fields([
 // POST /api/auth/login - Kullanıcı girişi
 router.post('/login', authController.login.bind(authController));
 
+// POST /api/auth/google-login - Google ile giriş
+router.post('/google-login', authController.googleLogin.bind(authController));
+
+// POST /api/auth/google-register - Google kaydını tamamlama
+router.post('/google-register', upload.fields([
+    { name: 'documents', maxCount: 5 }
+]), authController.completeGoogleRegistration.bind(authController));
+
+// POST /api/auth/apple-login - Apple ile giriş
+router.post('/apple-login', authController.appleLogin.bind(authController));
+
+// POST /api/auth/apple-register - Apple kaydını tamamlama
+router.post('/apple-register', upload.fields([
+    { name: 'documents', maxCount: 5 }
+]), authController.completeAppleRegistration.bind(authController));
+
 // POST /api/auth/forgot-password - Şifre sıfırlama kodu gönderme
 router.post('/forgot-password', authController.forgotPassword.bind(authController));
 
