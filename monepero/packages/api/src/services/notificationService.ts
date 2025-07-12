@@ -12,8 +12,8 @@ export class NotificationService {
         });
     }
 
-    // Teklif geldi bildirimi gönder
-    async sendOfferNotification(
+    // Kaleci teklif geldi bildirimi gönder
+    async sendGoalkeeperOfferNotification(
         recipientUserId: string,
         offerData: {
             senderName: string;
@@ -38,10 +38,10 @@ export class NotificationService {
                 .map(tokenData => ({
                     to: tokenData.token,
                     sound: 'default',
-                    title: '🥅 Yeni Teklif Geldi!',
+                    title: '🥅 Yeni Kaleci Teklifi Geldi!',
                     body: `${offerData.senderName} kaleci ilanınız için teklif gönderdi. Maç: ${offerData.matchDate}, ${offerData.location}`,
                     data: {
-                        type: 'OFFER_RECEIVED',
+                        type: 'GOALKEEPER_OFFER_RECEIVED',
                         offerId: offerData.offerId,
                         senderName: offerData.senderName,
                         matchDate: offerData.matchDate,
@@ -59,11 +59,11 @@ export class NotificationService {
             }
 
             const tickets = await this.expo.sendPushNotificationsAsync(messages);
-            console.log('Teklif bildirimi gönderildi:', tickets);
+            console.log('Kaleci teklif bildirimi gönderildi:', tickets);
 
             return { success: true };
         } catch (error) {
-            console.error('Teklif bildirimi gönderme hatası:', error);
+            console.error('Kaleci teklif bildirimi gönderme hatası:', error);
             return {
                 success: false,
                 error: 'Bildirim gönderilirken bir hata oluştu'
@@ -71,8 +71,67 @@ export class NotificationService {
         }
     }
 
-    // Teklif kabul edildi bildirimi
-    async sendOfferAcceptedNotification(
+    // Hakem teklif geldi bildirimi gönder
+    async sendRefereeOfferNotification(
+        recipientUserId: string,
+        offerData: {
+            senderName: string;
+            matchDate: string;
+            location: string;
+            offeredPrice: number;
+            offerId: string;
+        }
+    ): Promise<{ success: boolean; error?: string }> {
+        try {
+            const tokensResponse = await fcmTokenService.getUserFcmTokens(recipientUserId);
+
+            if (!tokensResponse.success || !tokensResponse.data || tokensResponse.data.length === 0) {
+                return {
+                    success: false,
+                    error: 'Kullanıcının aktif FCM token\'ı bulunamadı'
+                };
+            }
+
+            const messages: ExpoPushMessage[] = tokensResponse.data
+                .filter(tokenData => Expo.isExpoPushToken(tokenData.token))
+                .map(tokenData => ({
+                    to: tokenData.token,
+                    sound: 'default',
+                    title: '⚽ Yeni Hakem Teklifi Geldi!',
+                    body: `${offerData.senderName} hakem ilanınız için teklif gönderdi. Maç: ${offerData.matchDate}, ${offerData.location}`,
+                    data: {
+                        type: 'REFEREE_OFFER_RECEIVED',
+                        offerId: offerData.offerId,
+                        senderName: offerData.senderName,
+                        matchDate: offerData.matchDate,
+                        location: offerData.location,
+                        offeredPrice: offerData.offeredPrice
+                    },
+                    badge: 1
+                }));
+
+            if (messages.length === 0) {
+                return {
+                    success: false,
+                    error: 'Geçerli Expo push token bulunamadı'
+                };
+            }
+
+            const tickets = await this.expo.sendPushNotificationsAsync(messages);
+            console.log('Hakem teklif bildirimi gönderildi:', tickets);
+
+            return { success: true };
+        } catch (error) {
+            console.error('Hakem teklif bildirimi gönderme hatası:', error);
+            return {
+                success: false,
+                error: 'Bildirim gönderilirken bir hata oluştu'
+            };
+        }
+    }
+
+    // Kaleci teklif kabul edildi bildirimi
+    async sendGoalkeeperOfferAcceptedNotification(
         recipientUserId: string,
         offerData: {
             goalkeeperName: string;
@@ -96,10 +155,10 @@ export class NotificationService {
                 .map(tokenData => ({
                     to: tokenData.token,
                     sound: 'default',
-                    title: '✅ Teklifiniz Kabul Edildi!',
+                    title: '✅ Kaleci Teklifiniz Kabul Edildi!',
                     body: `${offerData.goalkeeperName} teklifinizi kabul etti! Maç: ${offerData.matchDate}, ${offerData.location} messagelar kısımıdan devam edeniniz `,
                     data: {
-                        type: 'OFFER_ACCEPTED',
+                        type: 'GOALKEEPER_OFFER_ACCEPTED',
                         offerId: offerData.offerId,
                         goalkeeperName: offerData.goalkeeperName,
                         matchDate: offerData.matchDate,
@@ -116,11 +175,11 @@ export class NotificationService {
             }
 
             const tickets = await this.expo.sendPushNotificationsAsync(messages);
-            console.log('Kabul bildirimi gönderildi:', tickets);
+            console.log('Kaleci kabul bildirimi gönderildi:', tickets);
 
             return { success: true };
         } catch (error) {
-            console.error('Kabul bildirimi gönderme hatası:', error);
+            console.error('Kaleci kabul bildirimi gönderme hatası:', error);
             return {
                 success: false,
                 error: 'Bildirim gönderilirken bir hata oluştu'
@@ -128,8 +187,65 @@ export class NotificationService {
         }
     }
 
-    // Teklif reddedildi bildirimi
-    async sendOfferRejectedNotification(
+    // Hakem teklif kabul edildi bildirimi
+    async sendRefereeOfferAcceptedNotification(
+        recipientUserId: string,
+        offerData: {
+            refereeName: string;
+            matchDate: string;
+            location: string;
+            offerId: string;
+        }
+    ): Promise<{ success: boolean; error?: string }> {
+        try {
+            const tokensResponse = await fcmTokenService.getUserFcmTokens(recipientUserId);
+
+            if (!tokensResponse.success || !tokensResponse.data || tokensResponse.data.length === 0) {
+                return {
+                    success: false,
+                    error: 'Kullanıcının aktif FCM token\'ı bulunamadı'
+                };
+            }
+
+            const messages: ExpoPushMessage[] = tokensResponse.data
+                .filter(tokenData => Expo.isExpoPushToken(tokenData.token))
+                .map(tokenData => ({
+                    to: tokenData.token,
+                    sound: 'default',
+                    title: '✅ Hakem Teklifiniz Kabul Edildi!',
+                    body: `${offerData.refereeName} teklifinizi kabul etti! Maç: ${offerData.matchDate}, ${offerData.location} messagelar kısımıdan devam edeniniz `,
+                    data: {
+                        type: 'REFEREE_OFFER_ACCEPTED',
+                        offerId: offerData.offerId,
+                        refereeName: offerData.refereeName,
+                        matchDate: offerData.matchDate,
+                        location: offerData.location
+                    },
+                    badge: 1
+                }));
+
+            if (messages.length === 0) {
+                return {
+                    success: false,
+                    error: 'Geçerli Expo push token bulunamadı'
+                };
+            }
+
+            const tickets = await this.expo.sendPushNotificationsAsync(messages);
+            console.log('Hakem kabul bildirimi gönderildi:', tickets);
+
+            return { success: true };
+        } catch (error) {
+            console.error('Hakem kabul bildirimi gönderme hatası:', error);
+            return {
+                success: false,
+                error: 'Bildirim gönderilirken bir hata oluştu'
+            };
+        }
+    }
+
+    // Kaleci teklif reddedildi bildirimi
+    async sendGoalkeeperOfferRejectedNotification(
         recipientUserId: string,
         offerData: {
             goalkeeperName: string;
@@ -153,10 +269,10 @@ export class NotificationService {
                 .map(tokenData => ({
                     to: tokenData.token,
                     sound: 'default',
-                    title: '❌ Teklifiniz Reddedildi',
+                    title: '❌ Kaleci Teklifiniz Reddedildi',
                     body: `${offerData.goalkeeperName} teklifinizi reddetti. Maç: ${offerData.matchDate}`,
                     data: {
-                        type: 'OFFER_REJECTED',
+                        type: 'GOALKEEPER_OFFER_REJECTED',
                         offerId: offerData.offerId,
                         goalkeeperName: offerData.goalkeeperName,
                         matchDate: offerData.matchDate,
@@ -173,11 +289,68 @@ export class NotificationService {
             }
 
             const tickets = await this.expo.sendPushNotificationsAsync(messages);
-            console.log('Red bildirimi gönderildi:', tickets);
+            console.log('Kaleci red bildirimi gönderildi:', tickets);
 
             return { success: true };
         } catch (error) {
-            console.error('Red bildirimi gönderme hatası:', error);
+            console.error('Kaleci red bildirimi gönderme hatası:', error);
+            return {
+                success: false,
+                error: 'Bildirim gönderilirken bir hata oluştu'
+            };
+        }
+    }
+
+    // Hakem teklif reddedildi bildirimi
+    async sendRefereeOfferRejectedNotification(
+        recipientUserId: string,
+        offerData: {
+            refereeName: string;
+            matchDate: string;
+            location: string;
+            offerId: string;
+        }
+    ): Promise<{ success: boolean; error?: string }> {
+        try {
+            const tokensResponse = await fcmTokenService.getUserFcmTokens(recipientUserId);
+
+            if (!tokensResponse.success || !tokensResponse.data || tokensResponse.data.length === 0) {
+                return {
+                    success: false,
+                    error: 'Kullanıcının aktif FCM token\'ı bulunamadı'
+                };
+            }
+
+            const messages: ExpoPushMessage[] = tokensResponse.data
+                .filter(tokenData => Expo.isExpoPushToken(tokenData.token))
+                .map(tokenData => ({
+                    to: tokenData.token,
+                    sound: 'default',
+                    title: '❌ Hakem Teklifiniz Reddedildi',
+                    body: `${offerData.refereeName} teklifinizi reddetti. Maç: ${offerData.matchDate}`,
+                    data: {
+                        type: 'REFEREE_OFFER_REJECTED',
+                        offerId: offerData.offerId,
+                        refereeName: offerData.refereeName,
+                        matchDate: offerData.matchDate,
+                        location: offerData.location
+                    },
+                    badge: 1
+                }));
+
+            if (messages.length === 0) {
+                return {
+                    success: false,
+                    error: 'Geçerli Expo push token bulunamadı'
+                };
+            }
+
+            const tickets = await this.expo.sendPushNotificationsAsync(messages);
+            console.log('Hakem red bildirimi gönderildi:', tickets);
+
+            return { success: true };
+        } catch (error) {
+            console.error('Hakem red bildirimi gönderme hatası:', error);
             return {
                 success: false,
                 error: 'Bildirim gönderilirken bir hata oluştu'

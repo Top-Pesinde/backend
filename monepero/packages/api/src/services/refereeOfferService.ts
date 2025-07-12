@@ -1,9 +1,8 @@
 import { prisma } from '../lib/prisma';
-import { notificationService } from './notificationService';
 import { Decimal } from '@prisma/client/runtime/library';
+import { notificationService } from './notificationService';
 
-// Teklif oluşturma için DTO
-export interface CreateGoalkeeperOfferDto {
+export interface CreateRefereeOfferDto {
     listingId: string;
     matchDate: Date;
     startTime: string; // HH:MM formatında
@@ -13,12 +12,11 @@ export interface CreateGoalkeeperOfferDto {
     offeredPrice: number;
 }
 
-// Teklif güncelleme için DTO
-export interface UpdateOfferStatusDto {
+export interface UpdateRefereeOfferStatusDto {
     status: 'ACCEPTED' | 'REJECTED';
 }
 
-export interface GoalkeeperOffer {
+export interface RefereeOffer {
     id: string;
     listingId: string;
     offerFromUserId: string;
@@ -28,7 +26,7 @@ export interface GoalkeeperOffer {
     endTime: string;
     location: string;
     description?: string;
-    offeredPrice: Decimal; // Decimal tipine değiştirdim
+    offeredPrice: Decimal;
     status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED';
     createdAt: Date;
     updatedAt: Date;
@@ -44,15 +42,15 @@ export interface ServiceResponse<T> {
     statusCode: number;
 }
 
-export class GoalkeeperOfferService {
+export class RefereeOfferService {
     // Teklif gönderme
     async createOffer(
         userId: string,
-        data: CreateGoalkeeperOfferDto
-    ): Promise<ServiceResponse<GoalkeeperOffer>> {
+        data: CreateRefereeOfferDto
+    ): Promise<ServiceResponse<RefereeOffer>> {
         try {
-            // Kaleci ilanını kontrol et
-            const listing = await prisma.goalkeeperListing.findUnique({
+            // Hakem ilanını kontrol et
+            const listing = await prisma.refereeListing.findUnique({
                 where: { id: data.listingId, isActive: true },
                 include: {
                     user: {
@@ -69,7 +67,7 @@ export class GoalkeeperOfferService {
             if (!listing) {
                 return {
                     success: false,
-                    error: 'Kaleci ilanı bulunamadı veya aktif değil',
+                    error: 'Hakem ilanı bulunamadı veya aktif değil',
                     statusCode: 404
                 };
             }
@@ -102,27 +100,30 @@ export class GoalkeeperOfferService {
                 };
             }
 
-            // Aynı ilana aynı tarih/saat için zaten teklif var mı kontrol et
-            const existingOffer = await (prisma as any).goalkeeperOffer.findFirst({
+            // Aynı tarih ve saatte zaten teklif var mı kontrol et
+            const existingOffer = await (prisma as any).refereeOffer.findFirst({
                 where: {
                     listingId: data.listingId,
                     offerFromUserId: userId,
                     matchDate: data.matchDate,
                     startTime: data.startTime,
-                    status: { in: ['PENDING', 'ACCEPTED'] }
+                    endTime: data.endTime,
+                    status: {
+                        in: ['PENDING', 'ACCEPTED']
+                    }
                 }
             });
 
             if (existingOffer) {
                 return {
                     success: false,
-                    error: 'Bu tarih ve saat için zaten bir teklifiniz bulunuyor',
+                    error: 'Bu tarih ve saat için zaten aktif bir teklifiniz bulunmaktadır',
                     statusCode: 409
                 };
             }
 
-            // Teklifi oluştur
-            const offer = await (prisma as any).goalkeeperOffer.create({
+            // Teklif oluştur
+            const offer = await (prisma as any).refereeOffer.create({
                 data: {
                     listingId: data.listingId,
                     offerFromUserId: userId,
@@ -132,7 +133,7 @@ export class GoalkeeperOfferService {
                     endTime: data.endTime,
                     location: data.location,
                     description: data.description,
-                    offeredPrice: new Decimal(data.offeredPrice)
+                    offeredPrice: data.offeredPrice
                 },
                 include: {
                     listing: {
@@ -161,25 +162,20 @@ export class GoalkeeperOfferService {
                 }
             });
 
-            // Kaleciye bildirim gönder
+            // Hakem'e bildirim gönder
             try {
-                const senderName = `${offerFromUser.firstName} ${offerFromUser.lastName}`;
-                const matchDateStr = new Intl.DateTimeFormat('tr-TR', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                }).format(data.matchDate);
-
-                await notificationService.sendGoalkeeperOfferNotification(listing.userId, {
-                    senderName,
-                    matchDate: `${matchDateStr} ${data.startTime}-${data.endTime}`,
-                    location: data.location,
-                    offeredPrice: data.offeredPrice,
-                    offerId: offer.id
-                });
+                await notificationService.sendRefereeOfferNotification(
+                    listing.userId,
+                    {
+                        senderName: `${offerFromUser.firstName} ${offerFromUser.lastName}`,
+                        matchDate: data.matchDate.toISOString().split('T')[0],
+                        location: data.location,
+                        offeredPrice: data.offeredPrice,
+                        offerId: offer.id
+                    }
+                );
             } catch (notificationError) {
-                console.error('Kaleci teklif bildirimi gönderilirken hata:', notificationError);
+                console.error('Hakem teklif bildirimi gönderilirken hata:', notificationError);
                 // Bildirim hatası teklif oluşturulmasını engellemez
             }
 
@@ -189,7 +185,7 @@ export class GoalkeeperOfferService {
                 statusCode: 201
             };
         } catch (error: any) {
-            console.error('GoalkeeperOfferService.createOffer error:', error);
+            console.error('RefereeOfferService.createOffer error:', error);
             return {
                 success: false,
                 error: 'Teklif gönderilirken bir hata oluştu',
@@ -202,37 +198,11 @@ export class GoalkeeperOfferService {
     async updateOfferStatus(
         offerId: string,
         userId: string,
-        data: UpdateOfferStatusDto
-    ): Promise<ServiceResponse<GoalkeeperOffer>> {
+        data: UpdateRefereeOfferStatusDto
+    ): Promise<ServiceResponse<RefereeOffer>> {
         try {
-            // Teklifi kontrol et
-            const existingOffer = await (prisma as any).goalkeeperOffer.findUnique({
-                where: { id: offerId },
-                include: {
-                    listing: {
-                        select: {
-                            id: true,
-                            title: true,
-                            location: true
-                        }
-                    },
-                    offerFromUser: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            lastName: true,
-                            username: true
-                        }
-                    },
-                    offerToUser: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            lastName: true,
-                            username: true
-                        }
-                    }
-                }
+            const existingOffer = await (prisma as any).refereeOffer.findUnique({
+                where: { id: offerId }
             });
 
             if (!existingOffer) {
@@ -243,11 +213,11 @@ export class GoalkeeperOfferService {
                 };
             }
 
-            // Sadece kaleci (ilan sahibi) teklifleri yanıtlayabilir
+            // Sadece teklifi alan kişi (hakem) durumu değiştirebilir
             if (existingOffer.offerToUserId !== userId) {
                 return {
                     success: false,
-                    error: 'Bu teklifi yanıtlama yetkiniz yok',
+                    error: 'Bu teklifi güncelleme yetkiniz yok',
                     statusCode: 403
                 };
             }
@@ -261,18 +231,16 @@ export class GoalkeeperOfferService {
                 };
             }
 
-            // Teklifi güncelle
-            const updatedOffer = await (prisma as any).goalkeeperOffer.update({
+            const updatedOffer = await (prisma as any).refereeOffer.update({
                 where: { id: offerId },
-                data: {
-                    status: data.status
-                },
+                data: { status: data.status },
                 include: {
                     listing: {
                         select: {
                             id: true,
                             title: true,
-                            location: true
+                            location: true,
+                            description: true
                         }
                     },
                     offerFromUser: {
@@ -294,33 +262,34 @@ export class GoalkeeperOfferService {
                 }
             });
 
-            // Teklifi gönderen kişiye bildirim gönder
+            // Teklif gönderen kişiye bildirim gönder
             try {
-                const goalkeeperName = `${existingOffer.offerToUser.firstName} ${existingOffer.offerToUser.lastName}`;
-                const matchDateStr = new Intl.DateTimeFormat('tr-TR', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                }).format(existingOffer.matchDate);
+                const refereeName = `${updatedOffer.offerToUser.firstName} ${updatedOffer.offerToUser.lastName}`;
+                const matchDate = updatedOffer.matchDate.toISOString().split('T')[0];
 
                 if (data.status === 'ACCEPTED') {
-                    await notificationService.sendGoalkeeperOfferAcceptedNotification(existingOffer.offerFromUserId, {
-                        goalkeeperName,
-                        matchDate: `${matchDateStr} ${existingOffer.startTime}-${existingOffer.endTime}`,
-                        location: existingOffer.location,
-                        offerId: offerId
-                    });
+                    await notificationService.sendRefereeOfferAcceptedNotification(
+                        updatedOffer.offerFromUserId,
+                        {
+                            refereeName,
+                            matchDate,
+                            location: updatedOffer.location,
+                            offerId: updatedOffer.id
+                        }
+                    );
                 } else if (data.status === 'REJECTED') {
-                    await notificationService.sendGoalkeeperOfferRejectedNotification(existingOffer.offerFromUserId, {
-                        goalkeeperName,
-                        matchDate: `${matchDateStr} ${existingOffer.startTime}-${existingOffer.endTime}`,
-                        location: existingOffer.location,
-                        offerId: offerId
-                    });
+                    await notificationService.sendRefereeOfferRejectedNotification(
+                        updatedOffer.offerFromUserId,
+                        {
+                            refereeName,
+                            matchDate,
+                            location: updatedOffer.location,
+                            offerId: updatedOffer.id
+                        }
+                    );
                 }
             } catch (notificationError) {
-                console.error('Kaleci teklif durum bildirimi gönderilirken hata:', notificationError);
+                console.error('Hakem teklif durum bildirimi gönderilirken hata:', notificationError);
                 // Bildirim hatası teklif güncellenmesini engellemez
             }
 
@@ -330,7 +299,7 @@ export class GoalkeeperOfferService {
                 statusCode: 200
             };
         } catch (error: any) {
-            console.error('GoalkeeperOfferService.updateOfferStatus error:', error);
+            console.error('RefereeOfferService.updateOfferStatus error:', error);
             return {
                 success: false,
                 error: 'Teklif durumu güncellenirken bir hata oluştu',
@@ -344,7 +313,7 @@ export class GoalkeeperOfferService {
         userId: string,
         page: number = 1,
         limit?: number
-    ): Promise<ServiceResponse<{ offers: GoalkeeperOffer[]; total: number; totalPages: number }>> {
+    ): Promise<ServiceResponse<{ offers: RefereeOffer[]; total: number; totalPages: number }>> {
         try {
             const offset = limit ? (page - 1) * limit : 0;
 
@@ -377,8 +346,8 @@ export class GoalkeeperOfferService {
             }
 
             const [offers, total] = await Promise.all([
-                (prisma as any).goalkeeperOffer.findMany(findManyOptions),
-                (prisma as any).goalkeeperOffer.count({
+                (prisma as any).refereeOffer.findMany(findManyOptions),
+                (prisma as any).refereeOffer.count({
                     where: { offerFromUserId: userId }
                 })
             ]);
@@ -393,7 +362,7 @@ export class GoalkeeperOfferService {
                 statusCode: 200
             };
         } catch (error: any) {
-            console.error('GoalkeeperOfferService.getUserSentOffers error:', error);
+            console.error('RefereeOfferService.getUserSentOffers error:', error);
             return {
                 success: false,
                 error: 'Teklifler getirilirken bir hata oluştu',
@@ -407,7 +376,7 @@ export class GoalkeeperOfferService {
         userId: string,
         page: number = 1,
         limit?: number
-    ): Promise<ServiceResponse<{ offers: GoalkeeperOffer[]; total: number; totalPages: number }>> {
+    ): Promise<ServiceResponse<{ offers: RefereeOffer[]; total: number; totalPages: number }>> {
         try {
             const offset = limit ? (page - 1) * limit : 0;
 
@@ -440,8 +409,8 @@ export class GoalkeeperOfferService {
             }
 
             const [offers, total] = await Promise.all([
-                (prisma as any).goalkeeperOffer.findMany(findManyOptions),
-                (prisma as any).goalkeeperOffer.count({
+                (prisma as any).refereeOffer.findMany(findManyOptions),
+                (prisma as any).refereeOffer.count({
                     where: { offerToUserId: userId }
                 })
             ]);
@@ -456,7 +425,7 @@ export class GoalkeeperOfferService {
                 statusCode: 200
             };
         } catch (error: any) {
-            console.error('GoalkeeperOfferService.getUserReceivedOffers error:', error);
+            console.error('RefereeOfferService.getUserReceivedOffers error:', error);
             return {
                 success: false,
                 error: 'Teklifler getirilirken bir hata oluştu',
@@ -469,9 +438,9 @@ export class GoalkeeperOfferService {
     async getOfferById(
         offerId: string,
         userId: string
-    ): Promise<ServiceResponse<GoalkeeperOffer>> {
+    ): Promise<ServiceResponse<RefereeOffer>> {
         try {
-            const offer = await (prisma as any).goalkeeperOffer.findUnique({
+            const offer = await (prisma as any).refereeOffer.findUnique({
                 where: { id: offerId },
                 include: {
                     listing: {
@@ -554,7 +523,7 @@ export class GoalkeeperOfferService {
                 statusCode: 200
             };
         } catch (error: any) {
-            console.error('GoalkeeperOfferService.getOfferById error:', error);
+            console.error('RefereeOfferService.getOfferById error:', error);
             return {
                 success: false,
                 error: 'Teklif getirilirken bir hata oluştu',
@@ -569,7 +538,7 @@ export class GoalkeeperOfferService {
         userId: string
     ): Promise<ServiceResponse<void>> {
         try {
-            const existingOffer = await (prisma as any).goalkeeperOffer.findUnique({
+            const existingOffer = await (prisma as any).refereeOffer.findUnique({
                 where: { id: offerId }
             });
 
@@ -599,7 +568,7 @@ export class GoalkeeperOfferService {
                 };
             }
 
-            await (prisma as any).goalkeeperOffer.update({
+            await (prisma as any).refereeOffer.update({
                 where: { id: offerId },
                 data: { status: 'CANCELLED' }
             });
@@ -609,7 +578,7 @@ export class GoalkeeperOfferService {
                 statusCode: 200
             };
         } catch (error: any) {
-            console.error('GoalkeeperOfferService.cancelOffer error:', error);
+            console.error('RefereeOfferService.cancelOffer error:', error);
             return {
                 success: false,
                 error: 'Teklif iptal edilirken bir hata oluştu',
@@ -619,4 +588,4 @@ export class GoalkeeperOfferService {
     }
 }
 
-export const goalkeeperOfferService = new GoalkeeperOfferService(); 
+export const refereeOfferService = new RefereeOfferService(); 

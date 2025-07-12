@@ -10,55 +10,62 @@ import fcmTokenRoutes from './fcmTokenRoutes';
 import adminListingRoutes from './adminListingRouter';
 import listingDetailRoutes from './listingDetailRoutes';
 import goalkeeperOfferRoutes from './goalkeeperOfferRoutes';
+import refereeOfferRoutes from './refereeOfferRoutes';
 import testNotificationRoutes from './testNotificationRoutes';
 
 const router = Router();
 
 // API versiyonu ve base route'ları
 router.use('/v1/auth', authRoutes);
-router.use('/v1/uploads', uploadRoutes);
+router.use('/v1/upload', uploadRoutes);
 router.use('/v1/users', userRoutes);
 router.use('/v1/field-listings', fieldListingRoutes);
 router.use('/v1/goalkeeper-listings', goalkeeperRoutes);
 router.use('/v1/referee-listings', refereeRoutes);
 router.use('/v1/goalkeeper-offers', goalkeeperOfferRoutes);
-router.use('/v1/listings', listingDetailRoutes);
+router.use('/v1/referee-offers', refereeOfferRoutes);
 router.use('/v1/fcm-tokens', fcmTokenRoutes);
-router.use('/v1/admin', adminListingRoutes);
-router.use('/v1/test/notifications', testNotificationRoutes);
+router.use('/v1/admin/listings', adminListingRoutes);
+router.use('/v1/listings', listingDetailRoutes);
+router.use('/v1/metrics', metricsRoutes);
+router.use('/v1/test-notification', testNotificationRoutes);
 
-// Monitoring routes (no version prefix)
-router.use('/', metricsRoutes);
+// Health check endpoint
+router.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        service: 'Express API Services'
+    });
+});
 
-// Diğer service'ler buraya eklenebilir
-// router.use('/v1/products', productRoutes);
-// router.use('/v1/orders', orderRoutes);
-
-// API bilgi endpoint'i
+// Ana endpoint - API dökümantasyonu
 router.get('/', (req, res) => {
     res.json({
-        message: 'Express API with TypeScript and Services Architecture',
+        message: 'Express API Services',
         version: '1.0.0',
+        timestamp: new Date().toISOString(),
         endpoints: {
+            health: 'GET /api/health (Health check)',
             auth: {
-                register: 'POST /api/v1/auth/register',
-                login: 'POST /api/v1/auth/login',
-                forgotPassword: 'POST /api/v1/auth/forgot-password',
-                resetPassword: 'POST /api/v1/auth/reset-password',
-                refresh: 'POST /api/v1/auth/refresh',
-                profile: 'GET /api/v1/auth/profile',
-                logout: 'POST /api/v1/auth/logout',
-
-            },
-            uploads: {
-                profilePhoto: 'POST /api/v1/uploads/profile-photo',
-                updateProfilePhoto: 'PUT /api/v1/uploads/profile-photo',
-                documents: 'POST /api/v1/uploads/documents',
-                fieldPhotos: 'POST /api/v1/uploads/field-photos (FOOTBALL_FIELD_OWNER only)',
-                updateFieldPhotos: 'PUT /api/v1/uploads/field-photos (FOOTBALL_FIELD_OWNER only)',
-                deleteFile: 'DELETE /api/v1/uploads/:bucketType/:fileName',
-                getFileUrl: 'GET /api/v1/uploads/:bucketType/:fileName/url',
-                listFiles: 'GET /api/v1/uploads/:bucketType/list',
+                register: 'POST /api/v1/auth/register (User registration)',
+                login: 'POST /api/v1/auth/login (User login)',
+                logout: 'POST /api/v1/auth/logout (User logout)',
+                refreshToken: 'POST /api/v1/auth/refresh-token (Refresh access token)',
+                forgotPassword: 'POST /api/v1/auth/forgot-password (Send password reset email)',
+                resetPassword: 'POST /api/v1/auth/reset-password (Reset password)',
+                googleLogin: 'POST /api/v1/auth/google-login (Google login)',
+                googleRegister: 'POST /api/v1/auth/google-register (Complete Google registration)',
+                appleLogin: 'POST /api/v1/auth/apple-login (Apple login)',
+                appleRegister: 'POST /api/v1/auth/apple-register (Complete Apple registration)',
+                changePassword: 'POST /api/v1/auth/change-password (Change password)',
+                updateProfile: 'PUT /api/v1/auth/profile (Update profile)',
+                updateContactInfo: 'PUT /api/v1/auth/contact-info (Update contact info)',
+                changeSubscription: 'PATCH /api/v1/auth/subscription (Change subscription status)',
+                changeStatus: 'PATCH /api/v1/auth/status (Change user status - ADMIN only)',
+                terminateSession: 'POST /api/v1/auth/terminate-session (Terminate specific session)',
+                terminateOtherSessions: 'POST /api/v1/auth/terminate-other-sessions (Terminate all other sessions)',
+                getSessions: 'GET /api/v1/auth/sessions (Get user sessions)',
             },
             users: {
                 me: 'GET /api/v1/users/me (Get complete information about the authenticated user)',
@@ -107,48 +114,33 @@ router.get('/', (req, res) => {
                 getById: 'GET /api/v1/goalkeeper-offers/:offerId (Get offer details)',
                 cancel: 'PATCH /api/v1/goalkeeper-offers/:offerId/cancel (Cancel offer - Sender only)',
             },
+            refereeOffers: {
+                create: 'POST /api/v1/referee-offers (Send offer to referee listing)',
+                updateStatus: 'PATCH /api/v1/referee-offers/:offerId/status (Accept/Reject offer - Referee only)',
+                getSent: 'GET /api/v1/referee-offers/sent (Get sent offers)',
+                getReceived: 'GET /api/v1/referee-offers/received (Get received offers)',
+                getById: 'GET /api/v1/referee-offers/:offerId (Get offer details)',
+                cancel: 'PATCH /api/v1/referee-offers/:offerId/cancel (Cancel offer - Sender only)',
+            },
+            upload: {
+                single: 'POST /api/v1/upload/single (Upload single file)',
+                multiple: 'POST /api/v1/upload/multiple (Upload multiple files)',
+            },
             listings: {
-                getDetailAuto: 'GET /api/v1/listings/:id (Get listing detail with automatic type detection)',
-                getDetailByType: 'GET /api/v1/listings/:type/:id (Get listing detail by type and ID)',
+                getDetail: 'GET /api/v1/listings/:id (Get listing detail with auto type detection)',
+                getDetailByType: 'GET /api/v1/listings/:type/:id (Get listing detail by type)',
             },
             fcmTokens: {
-                upsert: 'POST /api/v1/fcm-tokens (Create or update FCM token)',
-                getMy: 'GET /api/v1/fcm-tokens (Get current user\'s FCM tokens)',
-                delete: 'DELETE /api/v1/fcm-tokens/:tokenId (Delete FCM token)',
+                register: 'POST /api/v1/fcm-tokens/register (Register FCM token)',
+                unregister: 'DELETE /api/v1/fcm-tokens/unregister (Unregister FCM token)',
+                getUserTokens: 'GET /api/v1/fcm-tokens/my (Get user\'s FCM tokens)',
             },
-            admin: {
-                setListingFeatured: 'POST /api/v1/admin/listings/:type/:id/feature (Set listing featured status - ADMIN only)',
-                getListingFeaturedStatus: 'GET /api/v1/admin/listings/:type/:id/feature (Get listing featured status - ADMIN only)',
-                setUserAllListingsFeatured: 'POST /api/v1/admin/users/:userId/listings/feature (Set all user listings featured - ADMIN only)',
-                setUserListingsByTypeFeatured: 'POST /api/v1/admin/users/:userId/listings/:type/feature (Set user listings by type featured - ADMIN only)',
+            testNotification: {
+                send: 'POST /api/v1/test-notification/send (Send test notification)',
             },
-            testNotifications: {
-                sendTest: 'POST /api/v1/test/notifications/send (Send test notification to Expo push token)',
-                validateToken: 'POST /api/v1/test/notifications/validate (Validate Expo push token)',
-            },
-            health: '/health',
-            metrics: '/metrics (Prometheus metrics)',
-        },
-        roles: ['USER', 'GOALKEEPER', 'REFEREE', 'FOOTBALL_FIELD_OWNER', 'ADMIN'],
-        storage: {
-            minioConsole: 'http://localhost:9001',
-            buckets: ['profile-photos', 'documents', 'general-uploads', 'fields'],
-            bucketUrls: {
-                profilePhotos: 'http://localhost:9000/profile-photos/',
-                documents: 'http://localhost:9000/documents/',
-                fieldPhotos: 'http://localhost:9000/fields/',
-                generalUploads: 'http://localhost:9000/general-uploads/'
-            }
-        },
-        fieldListingFeatures: {
-            technical: ['OPEN_24_7', 'ONLINE_RESERVATION', 'FREE_WIFI', 'SECURITY_CAMERA'],
-            facilities: ['CHANGING_ROOM', 'SHOWER', 'TOILET', 'PARKING', 'CAFE', 'TRIBUNE', 'RENTAL_SHOES', 'RENTAL_GLOVES'],
-            surfaceTypes: ['GRASS', 'ARTIFICIAL', 'CONCRETE', 'CARPET'],
-            contactTypes: ['PHONE', 'WHATSAPP'],
-            daysOfWeek: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
-        },
-        timestamp: new Date().toISOString(),
+            metrics: 'GET /api/v1/metrics (Get system metrics - ADMIN only)',
+        }
     });
 });
 
-export { router as apiRoutes }; 
+export { router }; 

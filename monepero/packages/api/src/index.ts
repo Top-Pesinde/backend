@@ -4,12 +4,12 @@ import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { apiRoutes } from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { metricsMiddleware } from './middleware/metricsMiddleware';
 import { UserSessionService } from './services/userSessionService';
 import { initializeSocket } from './services/socketService';
+import { router as apiRoutes } from './routes';
 
 const app = express();
 const httpServer = http.createServer(app);

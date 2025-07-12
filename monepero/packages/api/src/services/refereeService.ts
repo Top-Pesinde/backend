@@ -74,9 +74,9 @@ export class RefereeService {
                     description: data.description,
                     hasLicense: data.hasLicense || false,
                     hourlyPrice: data.hourlyPrice,
-                    bio: data.bio || '',
-                    phone: data.phone || '',
-                    contactType: data.contactType || 'PHONE'
+                    bio: data.bio || null,
+                    phone: null,
+                    contactType: null
                 },
                 include: {
                     user: {
