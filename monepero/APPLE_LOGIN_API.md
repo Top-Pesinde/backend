@@ -234,3 +234,12 @@ Apple identity token'ları şu şekilde doğrulanır:
 1. **Document:** Opsiyonel
 2. **Status:** Kayıt sırasında otomatik olarak `true`
 3. **Hemen Giriş:** Kayıt sonrası hemen giriş yapabilirler
+
+curl -X POST "http://localhost:3000/api/v1/chat/messages/send" \
+ -H "Content-Type: application/json" \
+ -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWQwa3A1cDUwMDAwOWQxdzNrN2diaWd2IiwiZW1haWwiOiJ0ZXN0QGV4YW1wbGUuY29tIiwicm9sZSI6IlVTRVIiLCJqdGkiOiI2NjQ1YmExZS1jZmY4LTQwOTItYjc0NC04MDAyYWE0NjhjYzkiLCJpYXQiOjE3NTIzNDY2MTMsImV4cCI6MTc1NzUzMDYxM30.SB2UtR2oVkYglZeoHq7Wd16EqGAHOaHFSbtpXvCcF4c" \
+ -d '{
+"receiverId": "cmd0lx8i700059d1wfzsnssvn",
+"content": "yarak kafa ",
+"messageType": "TEXT"
+}'

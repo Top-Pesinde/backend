@@ -13,7 +13,7 @@ import { router as apiRoutes } from './routes';
 
 const app = express();
 const httpServer = http.createServer(app);
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = 3000; // Fixed port for API server
 
 // Socket.IO'yu başlat
 const socketService = initializeSocket(httpServer);

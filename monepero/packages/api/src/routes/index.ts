@@ -12,6 +12,7 @@ import listingDetailRoutes from './listingDetailRoutes';
 import goalkeeperOfferRoutes from './goalkeeperOfferRoutes';
 import refereeOfferRoutes from './refereeOfferRoutes';
 import testNotificationRoutes from './testNotificationRoutes';
+import chatRoutes from './chatRoutes';
 
 const router = Router();
 
@@ -27,6 +28,7 @@ router.use('/v1/referee-offers', refereeOfferRoutes);
 router.use('/v1/fcm-tokens', fcmTokenRoutes);
 router.use('/v1/admin/listings', adminListingRoutes);
 router.use('/v1/listings', listingDetailRoutes);
+router.use('/v1/chat', chatRoutes);
 router.use('/v1/metrics', metricsRoutes);
 router.use('/v1/test-notification', testNotificationRoutes);
 
@@ -137,6 +139,19 @@ router.get('/', (req, res) => {
             },
             testNotification: {
                 send: 'POST /api/v1/test-notification/send (Send test notification)',
+            },
+            chat: {
+                startConversation: 'POST /api/v1/chat/conversations/start (Start conversation with another user)',
+                getConversations: 'GET /api/v1/chat/conversations (Get user conversations)',
+                getMessages: 'GET /api/v1/chat/conversations/:conversationId/messages (Get conversation messages)',
+                markAsRead: 'PUT /api/v1/chat/conversations/:conversationId/read (Mark messages as read)',
+                sendMessage: 'POST /api/v1/chat/messages/send (Send message via REST API)',
+                deleteMessage: 'DELETE /api/v1/chat/messages/:messageId (Delete message)',
+                editMessage: 'PUT /api/v1/chat/messages/:messageId/edit (Edit message)',
+                blockUser: 'POST /api/v1/chat/block (Block user)',
+                unblockUser: 'POST /api/v1/chat/unblock (Unblock user)',
+                getBlockedUsers: 'GET /api/v1/chat/blocked-users (Get blocked users)',
+                checkBlockStatus: 'GET /api/v1/chat/block-status/:otherUserId (Check block status)',
             },
             metrics: 'GET /api/v1/metrics (Get system metrics - ADMIN only)',
         }

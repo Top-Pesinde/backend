@@ -41,6 +41,14 @@ model User {
   sentRefereeOffers  RefereeOffer[]     @relation("RefereeOfferFromUser") // Gönderdiği hakem teklifleri
   receivedRefereeOffers RefereeOffer[]  @relation("RefereeOfferToUser")   // Aldığı hakem teklifleri
   status             Boolean            @default(true)
+  
+  // Chat ilişkileri
+  sentMessages        Message[]          @relation("MessageSender")
+  receivedMessages    Message[]          @relation("MessageReceiver")
+  conversations1      Conversation[]     @relation("ConversationUser1")
+  conversations2      Conversation[]     @relation("ConversationUser2")
+  blockedUsers        UserBlock[]        @relation("BlockedByUser")
+  blockedByUsers      UserBlock[]        @relation("BlockedUser")
 
   @@map("users")
 }
@@ -317,4 +325,76 @@ enum OfferStatus {
   ACCEPTED   // Kabul edildi
   REJECTED   // Reddedildi
   CANCELLED  // İptal edildi
+}
+
+// Chat modelleri
+model Conversation {
+  id           String    @id @default(cuid())
+  user1Id      String    @map("user1_id")
+  user2Id      String    @map("user2_id")
+  lastMessage  String?   @map("last_message")
+  lastMessageAt DateTime? @map("last_message_at")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  
+  user1        User      @relation("ConversationUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2        User      @relation("ConversationUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+  messages     Message[]
+  
+  @@unique([user1Id, user2Id])
+  @@map("conversations")
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String        @map("conversation_id")
+  senderId       String        @map("sender_id")
+  receiverId     String        @map("receiver_id")
+  content        String
+  messageType    MessageType   @default(TEXT) @map("message_type")
+  isRead         Boolean       @default(false) @map("is_read")
+  readAt         DateTime?     @map("read_at")
+  isEdited       Boolean       @default(false) @map("is_edited")
+  editedAt       DateTime?     @map("edited_at")
+  isDeleted      Boolean       @default(false) @map("is_deleted")
+  deletedAt      DateTime?     @map("deleted_at")
+  replyToId      String?       @map("reply_to_id") // Yanıt verilen mesaj
+  attachmentUrl  String?       @map("attachment_url") // Dosya/resim eki
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User          @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver       User          @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  replyTo        Message?      @relation("MessageReply", fields: [replyToId], references: [id])
+  replies        Message[]     @relation("MessageReply")
+  
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@index([receiverId])
+  @@map("messages")
+}
+
+model UserBlock {
+  id           String   @id @default(cuid())
+  blockedById  String   @map("blocked_by_id") // Engelleyen kullanıcı
+  blockedUserId String  @map("blocked_user_id") // Engellenen kullanıcı
+  reason       String?  // Engelleme sebebi
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  blockedBy    User     @relation("BlockedByUser", fields: [blockedById], references: [id], onDelete: Cascade)
+  blockedUser  User     @relation("BlockedUser", fields: [blockedUserId], references: [id], onDelete: Cascade)
+  
+  @@unique([blockedById, blockedUserId])
+  @@map("user_blocks")
+}
+
+enum MessageType {
+  TEXT        // Metin mesajı
+  IMAGE       // Resim
+  FILE        // Dosya
+  VOICE       // Ses kaydı
+  LOCATION    // Konum
+  OFFER       // Teklif mesajı
 }
