@@ -1,5 +1,5 @@
 # İş akışının adı (GitHub Actions arayüzünde görünür)
-name: Main Branch Loglama
+name: SSH ile Sunucuya Bağlan
 
 # Bu iş akışının ne zaman tetikleneceğini belirler
 on:
@@ -10,14 +10,22 @@ on:
 
 # Çalıştırılacak işlerin listesi
 jobs:
-  # "merhaba-de" adında tek bir iş tanımlıyoruz
-  merhaba-de:
+  # "sunucuya-baglan" adında bir iş
+  sunucuya-baglan:
     # Bu işin çalışacağı sanal makinenin işletim sistemi
     runs-on: ubuntu-latest
 
     # İşin içinde sırayla çalıştırılacak adımlar
     steps:
-      # Adım 1: "run" komutu ile doğrudan bir terminal komutu çalıştırıyoruz.
-      # Bu adım, log'a "merhaba log" mesajını yazdıracaktır.
-      - name: Log Mesajını Yazdır
-        run: echo "merhaba log"
+      # Adım 1: SSH bağlantısı kuran ve komut çalıştıran eylem
+      - name: Sunucuya SSH ile bağlan ve komut çalıştır
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22 # Varsayılan port 22'dir, farklıysa değiştirin.
+          script: |
+            echo "Sunucuya başarıyla bağlandım!"
+            ls -la
+            # Buraya sunucuda çalıştırmak istediğiniz diğer komutları ekleyebilirsiniz.
