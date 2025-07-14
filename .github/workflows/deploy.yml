@@ -27,25 +27,29 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-          cache-dependency-path: "package-lock.json"
+          cache-dependency-path: "api/package-lock.json"
 
       - name: 📦 Install Dependencies
-        run: npm ci
+        run: |
+          cd api
+          npm ci
 
       - name: 🔨 Build Project
-        run: npm run build
+        run: |
+          cd api
+          npm run build
 
       - name: 🗄️ Archive production artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist-and-modules
           path: |
-            dist/
-            node_modules/
-            package.json
-            package-lock.json
-            ecosystem.config.js
-            prisma/
+            api/dist/
+            api/node_modules/
+            api/package.json
+            api/package-lock.json
+            api/ecosystem.config.js
+            api/prisma/
 
   deploy:
     name: 🚀 Deploy to ${{ github.event.inputs.environment }}
@@ -58,7 +62,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: dist-and-modules
-          path: .
+          path: api/
 
       - name: 🚚 Transfer files to server
         uses: appleboy/scp-action@master
@@ -66,9 +70,9 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          source: "dist/,node_modules/,package.json,package-lock.json,ecosystem.config.js,prisma/"
+          source: "api/dist/,api/node_modules/,api/package.json,api/package-lock.json,api/ecosystem.config.js,api/prisma/"
           target: "/var/www/backend-api"
-          strip_components: 1
+          strip_components: 2
 
       - name: 🔄 Restart application
         uses: appleboy/ssh-action@master
