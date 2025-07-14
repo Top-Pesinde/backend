@@ -36,3 +36,7 @@ jobs:
             git clone https://github.com/Top-Pesinde/backend.git api
             cd api
             echo "Proje başarıyla güncellendi!"
+            # docker-compose.dev.yml dosyasını çalıştır
+            docker-compose -f docker-compose.dev.yml down
+            docker-compose -f docker-compose.dev.yml up -d
+            echo "Docker servisleri başarıyla başlatıldı!"
