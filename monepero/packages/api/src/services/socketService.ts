@@ -78,6 +78,9 @@ export class SocketService {
                 this.handleLeaveConversation(socket, data);
             });
 
+            // NOT: Kullanıcı mesajları okuma işlemi 'mark_messages_read' emit ile gerçekleştirilir.
+            // Client tarafından conversationId gönderilerek tetiklenir ve mesajlar okundu olarak işaretlenir.
+            // Başarılı işlem sonrası 'messages_marked_read' ve 'messages_read_by_user' eventleri tetiklenir.
             socket.on('mark_messages_read', (data: any) => {
                 this.handleMarkMessagesRead(socket, data);
             });
@@ -388,16 +391,15 @@ export class SocketService {
         try {
             const { conversationId, receiverId } = data;
 
-            if (!conversationId) {
-                socket.emit('chat_error', { message: 'Konuşma ID gerekli' });
+            if (!conversationId || !receiverId) {
+                socket.emit('chat_error', { message: 'Konuşma ID ve Alıcı ID gerekli' });
                 return;
             }
 
-            console.log(`⌨️ User ${socket.userId} yazmaya başladı: ${conversationId}`);
+            console.log(`⌨️  User ${socket.userId}, ${receiverId} için yazmaya başladı: ${conversationId}`);
 
-            // Konuşma odasındaki diğer kullanıcılara bildir
-            const conversationRoom = `conversation_${conversationId}`;
-            socket.to(conversationRoom).emit('user_typing_start', {
+            // Sadece ilgili kullanıcıya gönder
+            this.sendToUser(receiverId, 'user_typing_start', {
                 userId: socket.userId,
                 conversationId,
                 timestamp: new Date().toISOString()
@@ -412,16 +414,15 @@ export class SocketService {
         try {
             const { conversationId, receiverId } = data;
 
-            if (!conversationId) {
-                socket.emit('chat_error', { message: 'Konuşma ID gerekli' });
+            if (!conversationId || !receiverId) {
+                socket.emit('chat_error', { message: 'Konuşma ID ve Alıcı ID gerekli' });
                 return;
             }
 
-            console.log(`⏹️ User ${socket.userId} yazmayı bıraktı: ${conversationId}`);
+            console.log(`⏹️  User ${socket.userId}, ${receiverId} için yazmayı bıraktı: ${conversationId}`);
 
-            // Konuşma odasındaki diğer kullanıcılara bildir
-            const conversationRoom = `conversation_${conversationId}`;
-            socket.to(conversationRoom).emit('user_typing_stop', {
+            // Sadece ilgili kullanıcıya gönder
+            this.sendToUser(receiverId, 'user_typing_stop', {
                 userId: socket.userId,
                 conversationId,
                 timestamp: new Date().toISOString()
