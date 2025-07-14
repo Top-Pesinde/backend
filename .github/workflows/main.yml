@@ -21,9 +21,9 @@ jobs:
       - name: Sunucuya SSH ile bağlan ve komut çalıştır
         uses: appleboy/ssh-action@master
         with:
-          host: "176.96.131.222"
-          username: "root"
-          password: "Manavgat07"
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
           port: 22 # Varsayılan port 22'dir, farklıysa değiştirin.
           script: |
             echo "Sunucuya başarıyla bağlandım!"
