@@ -72,7 +72,7 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           source: "api/dist/,api/node_modules/,api/package.json,api/package-lock.json,api/ecosystem.config.js,api/prisma/"
           target: "/var/www/backend-api"
-          strip_components: 2
+          strip_components: 1
 
       - name: 🔄 Restart application
         uses: appleboy/ssh-action@master
