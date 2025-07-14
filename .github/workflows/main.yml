@@ -1,31 +1,44 @@
-# İş akışının adı (GitHub Actions arayüzünde görünür)
-name: SSH ile Sunucuya Bağlan
+# Pipeline'ın türünü ve adını belirtir
+kind: pipeline
+type: docker
+name: Sunucuya Gonder
 
-# Bu iş akışının ne zaman tetikleneceğini belirler
-on:
-  # SADECE "main" branch'ine bir push (kod gönderme) yapıldığında çalışır
-  push:
-    branches:
-      - main
+# Bu pipeline'ı hangi olayın tetikleyeceğini belirtir
+trigger:
+  branch:
+    - main # Sadece 'main' branch'ine kod gonderildiginde calisir
+  event:
+    - push
 
-# Çalıştırılacak işlerin listesi
-jobs:
-  # "sunucuya-baglan" adında bir iş
-  sunucuya-baglan:
-    # Bu işin çalışacağı sanal makinenin işletim sistemi
-    runs-on: ubuntu-latest
+# Çalıştırılacak adımlar
+steps:
+- name: SSH ile sunucuya dağıtım yap
+  # Kullanılacak Docker imajı (sizin log'unuzdaki ile aynı)
+  image: appleboy/drone-ssh:1.8.1
+  
+  # Plugin'e gönderilecek ayarlar
+  settings:
+    # 1. Sunucu adresi (ZORUNLU - hatanızın sebebi buydu)
+    # Kendi sunucunuzun IP adresini veya alan adını yazın
+    host: 176.96.131.222
+    # 2. Sunucuya bağlanılacak kullanıcı adı
+    username: root
 
-    # İşin içinde sırayla çalıştırılacak adımlar
-    steps:
-      # Adım 1: SSH bağlantısı kuran ve komut çalıştıran eylem
-      - name: Sunucuya SSH ile bağlan ve komut çalıştır
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: 22 # Varsayılan port 22'dir, farklıysa değiştirin.
-          script: |
-            echo "Sunucuya başarıyla bağlandım!"
-            ls -la
-            # Buraya sunucuda çalıştırmak istediğiniz diğer komutları ekleyebilirsiniz.
+    # 3. Sunucu SSH portu (genellikle 22'dir)
+    port: 22
+
+    # 4. Sunucu şifresi (GÜVENLİ YÖNTEM)
+    # Şifreyi asla doğrudan buraya yazmayın!
+    # Drone arayüzünden 'ssh_password' adında bir secret oluşturun.
+    password:
+      from_secret: Manavgat07
+
+    # 5. Sunucuda çalıştırılacak komutlar
+    # Kendi komutlarınızı bu bölüme yazın
+    script:
+      - echo "Sunucuya başarıyla bağlandım."
+      - cd /var/www/html # Projenizin sunucudaki konumu
+      - git pull origin main # Değişiklikleri çek
+      - echo "Uygulama başarıyla güncellendi."
+      # Gerekirse servis yeniden başlatma komutları vb. ekleyebilirsiniz
+      # - sudo systemctl restart nginx
