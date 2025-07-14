@@ -21,9 +21,9 @@ jobs:
       - name: Sunucuya SSH ile bağlan ve komut çalıştır
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          password: ${{ secrets.SSH_PASSWORD }}
+          host: "176.96.131.222"
+          username: "root"
+          password: "Manavgat07"
           port: 22 # Varsayılan port 22'dir, farklıysa değiştirin.
           script: |
             echo "Sunucuya başarıyla bağlandım!"
@@ -36,7 +36,3 @@ jobs:
             git clone https://github.com/Top-Pesinde/backend.git api
             cd api
             echo "Proje başarıyla güncellendi!"
-            # docker-compose.dev.yml dosyasını çalıştır
-            docker-compose -f docker-compose.dev.yml down
-            docker-compose -f docker-compose.dev.yml up -d
-            echo "Docker servisleri başarıyla başlatıldı!"
