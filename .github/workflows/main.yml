@@ -28,4 +28,5 @@ jobs:
           script: |
             echo "Sunucuya başarıyla bağlandım!"
             ls -la
-            # Buraya sunucuda çalıştırmak istediğiniz diğer komutları ekleyebilirsiniz.
+            echo "$GITHUB_ACTION_PATH" >> $GITHUB_PATH
+            ./entrypoint.sh
