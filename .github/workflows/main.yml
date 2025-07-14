@@ -27,6 +27,12 @@ jobs:
           port: 22 # Varsayılan port 22'dir, farklıysa değiştirin.
           script: |
             echo "Sunucuya başarıyla bağlandım!"
-            ls -la
-            echo "$GITHUB_ACTION_PATH" >> $GITHUB_PATH
-            ./entrypoint.sh
+            # Eğer proje klasörü varsa sil
+            if [ -d "/root/api" ]; then
+              rm -rf /root/api
+            fi
+            # Projeyi GitHub'dan çek
+            cd /root
+            git clone https://github.com/Top-Pesinde/backend.git api
+            cd api
+            echo "Proje başarıyla güncellendi!"
