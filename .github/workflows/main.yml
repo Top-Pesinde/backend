@@ -1,4 +1,3 @@
-# İş akışının adı (GitHub Actions arayüzünde görünür)
 name: SSH ile Sunucuya Bağlan
 
 # Bu iş akışının ne zaman tetikleneceğini belirler
@@ -23,7 +22,7 @@ jobs:
         with:
           host: "176.96.131.222"
           username: "root"
-          password: "Manavgat07"
+          password: "Manavgat07!"
           port: 22 # Varsayılan port 22'dir, farklıysa değiştirin.
           script: |
             echo "Sunucuya başarıyla bağlandım!"
@@ -36,3 +35,24 @@ jobs:
             git clone https://github.com/Top-Pesinde/backend.git api
             cd api
             echo "Proje başarıyla güncellendi!"
+
+            # Docker konteynerlerini kontrol et ve güncelle
+            if docker ps &>/dev/null; then
+              echo "Docker servisi çalışıyor, konteynerler kontrol ediliyor..."
+              # Eğer konteynerler zaten çalışıyorsa sadece güncelle
+              if docker ps | grep -q "express-api"; then
+                echo "Mevcut konteynerler güncelleniyor..."
+                docker-compose down
+                docker-compose up -d
+              else
+                echo "Konteynerler ilk kez başlatılıyor..."
+                docker-compose up -d
+              fi
+            else
+              echo "Docker servisi başlatılıyor..."
+              systemctl start docker
+              echo "Konteynerler başlatılıyor..."
+              docker-compose up -d
+            fi
+
+            echo "Deployment tamamlandı!"
