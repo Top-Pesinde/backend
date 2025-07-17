@@ -411,3 +411,30 @@ JWT_SECRET=test-secret
 - [ ] Logging (Winston)
 - [ ] Email verification
 - [ ] Real-time notifications (Socket.io)
+
+
+
+
+
+
+
+kadikoyhalisaha
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "kadikoyhalisaha",
+    "password": "GizliSifre123!"
+  }'
+
+
+
+
+TOKEN=$(curl -s -X POST http://localhost:3000/api/v1/auth/login -H "Content-Type: application/json" -d '{"username":"yenisaha","password":"YeniSifre123!"}') && ACCESS_TOKEN=$(echo $TOKEN | jq -r '.data.accessToken') && curl -X POST http://localhost:3000/api/v1/field-listings -H "Authorization: Bearer $ACCESS_TOKEN" -F "fieldName=Yeni Saha" -F "fieldAddress=Ankara, Çankaya" -F "hourlyPrice=600" -F "isIndoor=false" -F "surfaceType=GRASS" -F "phone=5559876543" -F "contactType=WHATSAPP" -F "description=Doğal çim, duş, otopark, wifi" -F "schedules=[{\"day\":\"MONDAY\",\"startTime\":\"08:00\",\"endTime\":\"22:00\"}]" -F "features=[\"OPEN_24_7\",\"PARKING\",\"FREE_WIFI\",\"SHOWER\"]" -F "photos=@/root/api/api/image.png" -F "photos=@/root/api/api/image.png"
+
+
+
+
+
+
+
+

@@ -11,12 +11,13 @@ import adminListingRoutes from './adminListingRouter';
 import listingDetailRoutes from './listingDetailRoutes';
 import goalkeeperOfferRoutes from './goalkeeperOfferRoutes';
 import refereeOfferRoutes from './refereeOfferRoutes';
+import fieldOfferRoutes from './fieldOfferRouter';
 import testNotificationRoutes from './testNotificationRoutes';
 import chatRoutes from './chatRoutes';
+import subscriptionsRouter from './subscriptionsRouter';
 
 const router = Router();
 
-// API versiyonu ve base route'ları
 router.use('/v1/auth', authRoutes);
 router.use('/v1/upload', uploadRoutes);
 router.use('/v1/users', userRoutes);
@@ -25,14 +26,15 @@ router.use('/v1/goalkeeper-listings', goalkeeperRoutes);
 router.use('/v1/referee-listings', refereeRoutes);
 router.use('/v1/goalkeeper-offers', goalkeeperOfferRoutes);
 router.use('/v1/referee-offers', refereeOfferRoutes);
+router.use('/v1/field-offers', fieldOfferRoutes);
 router.use('/v1/fcm-tokens', fcmTokenRoutes);
 router.use('/v1/admin/listings', adminListingRoutes);
 router.use('/v1/listings', listingDetailRoutes);
 router.use('/v1/chat', chatRoutes);
 router.use('/v1/metrics', metricsRoutes);
 router.use('/v1/test-notification', testNotificationRoutes);
+router.use('/v1/subscriptions', subscriptionsRouter);
 
-// Health check endpoint
 router.get('/health', (req, res) => {
     res.status(200).json({
         status: 'OK',
@@ -41,7 +43,6 @@ router.get('/health', (req, res) => {
     });
 });
 
-// Ana endpoint - API dökümantasyonu
 router.get('/', (req, res) => {
     res.json({
         message: 'Express API Services',
@@ -124,6 +125,14 @@ router.get('/', (req, res) => {
                 getById: 'GET /api/v1/referee-offers/:offerId (Get offer details)',
                 cancel: 'PATCH /api/v1/referee-offers/:offerId/cancel (Cancel offer - Sender only)',
             },
+            fieldOffers: {
+                create: 'POST /api/v1/field-offers (Send offer to field listing)',
+                updateStatus: 'PATCH /api/v1/field-offers/:offerId/status (Accept/Reject offer - Field owner only)',
+                getSent: 'GET /api/v1/field-offers/sent (Get sent offers)',
+                getReceived: 'GET /api/v1/field-offers/received (Get received offers)',
+                getById: 'GET /api/v1/field-offers/:offerId (Get offer details)',
+                getAcceptedByField: 'GET /api/v1/field-offers/field/:fieldListingId/accepted (Get accepted offers for a field - to see busy times)',
+            },
             upload: {
                 single: 'POST /api/v1/upload/single (Upload single file)',
                 multiple: 'POST /api/v1/upload/multiple (Upload multiple files)',
@@ -139,6 +148,11 @@ router.get('/', (req, res) => {
             },
             testNotification: {
                 send: 'POST /api/v1/test-notification/send (Send test notification)',
+            },
+            subscriptions: {
+                create: 'POST /api/v1/subscriptions (Create subscription)',
+                get: 'GET /api/v1/subscriptions/:userId (Get user subscriptions)',
+                update: 'PUT /api/v1/subscriptions/:id (Update subscription)',
             },
             chat: {
                 startConversation: 'POST /api/v1/chat/conversations/start (Start conversation with another user)',

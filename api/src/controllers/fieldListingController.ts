@@ -704,6 +704,48 @@ class FieldListingController {
             res.status(500).json(response);
         }
     }
+    // Halısaha ilanının haftalık açık/kapalı günlerini döner
+    async getFieldOpenDays(req: Request, res: Response): Promise<void> {
+        try {
+            const { id } = req.params;
+            if (!id) {
+                res.status(400).json({
+                    success: false,
+                    message: 'İlan ID\'si gereklidir',
+                    statusCode: 400
+                });
+                return;
+            }
+
+            // Service üzerinden çek
+            const schedules = await fieldListingService.getFieldOpenDays(id);
+            if (!schedules.success) {
+                res.status(500).json({
+                    success: false,
+                    message: 'Açık/kapalı günler getirilirken hata oluştu',
+                    error: schedules.error,
+                    statusCode: 500
+                });
+                return;
+            }
+
+            res.status(200).json({
+                success: true,
+                message: 'Açık/kapalı günler başarıyla getirildi',
+                data: schedules.data,
+                statusCode: 200
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: 'Açık/kapalı günler getirilirken hata oluştu',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                statusCode: 500
+            });
+        }
+    }
+
+
 }
 
 export const fieldListingController = new FieldListingController(); 

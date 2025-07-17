@@ -130,6 +130,65 @@ export class NotificationService {
         }
     }
 
+    // Halı saha teklif geldi bildirimi gönder
+    async sendFieldOfferNotification(
+        recipientUserId: string,
+        offerData: {
+            senderName: string;
+            matchDate: string;
+            fieldName: string;
+            offeredPrice: number;
+            offerId: string;
+        }
+    ): Promise<{ success: boolean; error?: string }> {
+        try {
+            const tokensResponse = await fcmTokenService.getUserFcmTokens(recipientUserId);
+
+            if (!tokensResponse.success || !tokensResponse.data || tokensResponse.data.length === 0) {
+                return {
+                    success: false,
+                    error: 'Kullanıcının aktif FCM token\'ı bulunamadı'
+                };
+            }
+
+            const messages: ExpoPushMessage[] = tokensResponse.data
+                .filter(tokenData => Expo.isExpoPushToken(tokenData.token))
+                .map(tokenData => ({
+                    to: tokenData.token,
+                    sound: 'default',
+                    title: '🏟️ Yeni Halı Saha Teklifi Geldi!',
+                    body: `${offerData.senderName} halı sahanız için teklif gönderdi. Maç: ${offerData.matchDate}, ${offerData.fieldName}`,
+                    data: {
+                        type: 'FIELD_OFFER_RECEIVED',
+                        offerId: offerData.offerId,
+                        senderName: offerData.senderName,
+                        matchDate: offerData.matchDate,
+                        fieldName: offerData.fieldName,
+                        offeredPrice: offerData.offeredPrice
+                    },
+                    badge: 1
+                }));
+
+            if (messages.length === 0) {
+                return {
+                    success: false,
+                    error: 'Geçerli Expo push token bulunamadı'
+                };
+            }
+
+            const tickets = await this.expo.sendPushNotificationsAsync(messages);
+            console.log('Halı saha teklif bildirimi gönderildi:', tickets);
+
+            return { success: true };
+        } catch (error) {
+            console.error('Halı saha teklif bildirimi gönderme hatası:', error);
+            return {
+                success: false,
+                error: 'Bildirim gönderilirken bir hata oluştu'
+            };
+        }
+    }
+
     // Kaleci teklif kabul edildi bildirimi
     async sendGoalkeeperOfferAcceptedNotification(
         recipientUserId: string,
@@ -244,6 +303,123 @@ export class NotificationService {
         }
     }
 
+    // Halı saha teklif kabul edildi bildirimi
+    async sendFieldOfferAcceptedNotification(
+        recipientUserId: string,
+        offerData: {
+            ownerName: string;
+            fieldName: string;
+            matchDate: string;
+            offerId: string;
+        }
+    ): Promise<{ success: boolean; error?: string }> {
+        try {
+            const tokensResponse = await fcmTokenService.getUserFcmTokens(recipientUserId);
+
+            if (!tokensResponse.success || !tokensResponse.data || tokensResponse.data.length === 0) {
+                return {
+                    success: false,
+                    error: 'Kullanıcının aktif FCM token\'ı bulunamadı'
+                };
+            }
+
+            const messages: ExpoPushMessage[] = tokensResponse.data
+                .filter(tokenData => Expo.isExpoPushToken(tokenData.token))
+                .map(tokenData => ({
+                    to: tokenData.token,
+                    sound: 'default',
+                    title: '✅ Halı Saha Teklifiniz Kabul Edildi!',
+                    body: `${offerData.ownerName} halı saha teklifinizi kabul etti! Maç: ${offerData.matchDate}, ${offerData.fieldName} messagelar kısımıdan devam ediniz`,
+                    data: {
+                        type: 'FIELD_OFFER_ACCEPTED',
+                        offerId: offerData.offerId,
+                        ownerName: offerData.ownerName,
+                        fieldName: offerData.fieldName,
+                        matchDate: offerData.matchDate
+                    },
+                    badge: 1
+                }));
+
+            if (messages.length === 0) {
+                return {
+                    success: false,
+                    error: 'Geçerli Expo push token bulunamadı'
+                };
+            }
+
+            const tickets = await this.expo.sendPushNotificationsAsync(messages);
+            console.log('Halı saha kabul bildirimi gönderildi:', tickets);
+
+            return { success: true };
+        } catch (error) {
+            console.error('Halı saha kabul bildirimi gönderme hatası:', error);
+            return {
+                success: false,
+                error: 'Bildirim gönderilirken bir hata oluştu'
+            };
+        }
+    }
+
+    // Halı saha teklif tamamlandı bildirimi
+    async sendFieldOfferCompletedNotification(
+        recipientUserId: string,
+        offerData: {
+            ownerName: string;
+            fieldName: string;
+            matchDate: string;
+            offerId: string;
+        }
+    ): Promise<{ success: boolean; error?: string }> {
+        try {
+            const tokensResponse = await fcmTokenService.getUserFcmTokens(recipientUserId);
+
+            if (!tokensResponse.success || !tokensResponse.data || tokensResponse.data.length === 0) {
+                return {
+                    success: false,
+                    error: 'Kullanıcının aktif FCM token\'ı bulunamadı'
+                };
+            }
+
+            const messages: ExpoPushMessage[] = tokensResponse.data
+                .filter(tokenData => Expo.isExpoPushToken(tokenData.token))
+                .map(tokenData => ({
+                    to: tokenData.token,
+                    sound: 'default',
+                    title: '🎉 Halı Saha Teklifiniz Tamamlandı!',
+                    body: `${offerData.ownerName} ile ${offerData.fieldName} için teklifiniz başarıyla tamamlandı! Maç: ${offerData.matchDate}`,
+                    data: {
+                        type: 'FIELD_OFFER_COMPLETED',
+                        offerId: offerData.offerId,
+                        ownerName: offerData.ownerName,
+                        fieldName: offerData.fieldName,
+                        matchDate: offerData.matchDate
+                    },
+                    badge: 1
+                }));
+
+            if (messages.length === 0) {
+                return {
+                    success: false,
+                    error: 'Geçerli Expo push token bulunamadı'
+                };
+            }
+
+            const tickets = await this.expo.sendPushNotificationsAsync(messages);
+            console.log('Halı saha tamamlandı bildirimi gönderildi:', tickets);
+
+            return { success: true };
+        } catch (error) {
+            console.error('Halı saha tamamlandı bildirimi gönderme hatası:', error);
+            return {
+                success: false,
+                error: 'Bildirim gönderilirken bir hata oluştu'
+            };
+        }
+    }
+
+
+
+
     // Kaleci teklif reddedildi bildirimi
     async sendGoalkeeperOfferRejectedNotification(
         recipientUserId: string,
@@ -351,6 +527,63 @@ export class NotificationService {
             return { success: true };
         } catch (error) {
             console.error('Hakem red bildirimi gönderme hatası:', error);
+            return {
+                success: false,
+                error: 'Bildirim gönderilirken bir hata oluştu'
+            };
+        }
+    }
+
+    // Halı saha teklif reddedildi bildirimi
+    async sendFieldOfferRejectedNotification(
+        recipientUserId: string,
+        offerData: {
+            ownerName: string;
+            fieldName: string;
+            matchDate: string;
+            offerId: string;
+        }
+    ): Promise<{ success: boolean; error?: string }> {
+        try {
+            const tokensResponse = await fcmTokenService.getUserFcmTokens(recipientUserId);
+
+            if (!tokensResponse.success || !tokensResponse.data || tokensResponse.data.length === 0) {
+                return {
+                    success: false,
+                    error: 'Kullanıcının aktif FCM token\'ı bulunamadı'
+                };
+            }
+
+            const messages: ExpoPushMessage[] = tokensResponse.data
+                .filter(tokenData => Expo.isExpoPushToken(tokenData.token))
+                .map(tokenData => ({
+                    to: tokenData.token,
+                    sound: 'default',
+                    title: '❌ Halı Saha Teklifiniz Reddedildi',
+                    body: `${offerData.ownerName} halı saha teklifinizi reddetti. Maç: ${offerData.matchDate}`,
+                    data: {
+                        type: 'FIELD_OFFER_REJECTED',
+                        offerId: offerData.offerId,
+                        ownerName: offerData.ownerName,
+                        fieldName: offerData.fieldName,
+                        matchDate: offerData.matchDate
+                    },
+                    badge: 1
+                }));
+
+            if (messages.length === 0) {
+                return {
+                    success: false,
+                    error: 'Geçerli Expo push token bulunamadı'
+                };
+            }
+
+            const tickets = await this.expo.sendPushNotificationsAsync(messages);
+            console.log('Halı saha red bildirimi gönderildi:', tickets);
+
+            return { success: true };
+        } catch (error) {
+            console.error('Halı saha red bildirimi gönderme hatası:', error);
             return {
                 success: false,
                 error: 'Bildirim gönderilirken bir hata oluştu'

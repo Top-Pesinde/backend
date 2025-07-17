@@ -138,4 +138,7 @@ router.patch('/my/listing/activate', authenticateToken, fieldListingController.a
  */
 router.delete('/my/listing', authenticateToken, fieldListingController.deleteFieldListing.bind(fieldListingController));
 
+// Halısaha ilanının haftalık açık/kapalı günlerini getirme
+router.get('/:id/open-days', fieldListingController.getFieldOpenDays.bind(fieldListingController));
+
 export default router; 

@@ -225,7 +225,11 @@ router.get('/sent', goalkeeperOfferController.getUserSentOffers.bind(goalkeeperO
  */
 router.get('/received', goalkeeperOfferController.getUserReceivedOffers.bind(goalkeeperOfferController));
 
+
+
+
 /**
+ * 
  * @swagger
  * /api/v1/goalkeeper-offers/{offerId}:
  *   get:
@@ -248,7 +252,6 @@ router.get('/received', goalkeeperOfferController.getUserReceivedOffers.bind(goa
  *       404:
  *         description: Teklif bulunamadı
  */
-router.get('/:offerId', goalkeeperOfferController.getOfferById.bind(goalkeeperOfferController));
 
 /**
  * @swagger

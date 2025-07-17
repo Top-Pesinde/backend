@@ -114,7 +114,7 @@ export class MinioService {
 
             const imageBuffer = Buffer.from(await response.arrayBuffer());
             const contentType = response.headers.get('content-type') || 'image/jpeg';
-            
+
             // Dosya uzantısını belirle
             const extension = contentType.split('/')[1] || 'jpg';
             const fileName = `profile-${userId}-${Date.now()}.${extension}`;
@@ -493,7 +493,7 @@ export class MinioService {
 
             // Replace localhost with external IP if needed
             if (url.includes('localhost')) {
-                const publicUrl = process.env.MINIO_PUBLIC_URL || 'http://176.96.131.222:9000';
+                const publicUrl = 'http://176.96.131.222:9000';
                 const baseUrl = publicUrl.replace('http://', '').replace('https://', '');
                 url = url.replace(/localhost:9000/g, baseUrl);
             }

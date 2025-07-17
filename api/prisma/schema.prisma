@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://postgres:password@localhost:5433/express_api_db"
 }
 
 model User {
@@ -40,7 +40,9 @@ model User {
   receivedOffers     GoalkeeperOffer[]  @relation("OfferToUser")   // Aldığı kaleci teklifleri
   sentRefereeOffers  RefereeOffer[]     @relation("RefereeOfferFromUser") // Gönderdiği hakem teklifleri
   receivedRefereeOffers RefereeOffer[]  @relation("RefereeOfferToUser")   // Aldığı hakem teklifleri
+  fieldOffers        FieldOffer[]       // Saha teklifleri
   status             Boolean            @default(true)
+  subscriptions      Subscription[]     // Kullanıcının abonelik bilgileri
   
   // Chat ilişkileri
   sentMessages        Message[]          @relation("MessageSender")
@@ -53,12 +55,23 @@ model User {
   @@map("users")
 }
 
+model Subscription {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  packageName   String    @map("package_name")
+  isActive      Boolean   @default(true) @map("is_active")
+  isPremium     Boolean   @default(false) @map("is_premium")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("subscriptions")
+}
+
 model Document {
   id        String   @id @default(cuid())
   fileName  String   @map("file_name")
   fileType  String   @map("file_type")
   filePath  String   @map("file_path")
-  fileSize  Int      @map("file_size")
+  fileSize  Int      @map("file_size")  
   userId    String   @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now()) @map("created_at")
@@ -88,6 +101,7 @@ model FieldListing {
   features         FieldFeature[]
   photos           FieldPhoto[]
   subFields        SubField[]
+  offers           FieldOffer[]
 
   @@map("field_listings")
 }
@@ -325,6 +339,7 @@ enum OfferStatus {
   ACCEPTED   // Kabul edildi
   REJECTED   // Reddedildi
   CANCELLED  // İptal edildi
+  COMPLETED  // Tamamlandı
 }
 
 // Chat modelleri
@@ -397,4 +412,23 @@ enum MessageType {
   VOICE       // Ses kaydı
   LOCATION    // Konum
   OFFER       // Teklif mesajı
+}
+
+model FieldOffer {
+  id             String    @id @default(cuid())
+  fieldListingId String    @map("field_listing_id")
+  offerFromUserId String   @map("offer_from_user_id")
+  matchDate      DateTime  @map("match_date")
+  startTime      String    @map("start_time")
+  endTime        String    @map("end_time")
+  description    String?
+  offeredPrice   Decimal   @map("offered_price") @db.Decimal(10, 2)
+  status         OfferStatus @default(PENDING)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  fieldListing   FieldListing @relation(fields: [fieldListingId], references: [id], onDelete: Cascade)
+  offerFromUser  User        @relation(fields: [offerFromUserId], references: [id], onDelete: Cascade)
+
+  @@map("field_offers")
 }

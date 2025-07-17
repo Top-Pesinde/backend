@@ -914,6 +914,25 @@ export class FieldListingService {
             };
         }
     }
+
+    // Halısaha ilanının haftalık açık/kapalı günlerini döner
+    async getFieldOpenDays(fieldListingId: string): Promise<ServiceResponse<any[]>> {
+        try {
+            const schedules = await prisma.fieldSchedule.findMany({
+                where: { fieldListingId },
+                select: {
+                    dayOfWeek: true,
+                    isOpen: true,
+                    startTime: true,
+                    endTime: true
+                },
+                orderBy: { dayOfWeek: 'asc' }
+            });
+            return { success: true, data: schedules };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Açık/kapalı günler getirilirken hata oluştu' };
+        }
+    }
 }
 
 export const fieldListingService = new FieldListingService(); 

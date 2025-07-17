@@ -318,6 +318,7 @@ export class GoalkeeperOfferController {
         }
     }
 
+
     // Teklifi iptal etme
     async cancelOffer(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
