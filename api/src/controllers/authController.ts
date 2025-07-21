@@ -723,6 +723,81 @@ export class AuthController {
         }
     }
 
+    async updateProfilePhoto(req: Request, res: Response): Promise<void> {
+        try {
+            const user = (req as any).user;
+            if (!user) {
+                const response = {
+                    success: false,
+                    message: 'User not authenticated',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 401
+                };
+                res.status(401).json(response);
+                return;
+            }
+
+            const file = (req as any).file;
+            if (!file) {
+                const response = {
+                    success: false,
+                    message: 'Profile photo is required',
+                    timestamp: new Date().toISOString(),
+                    statusCode: 400
+                };
+                res.status(400).json(response);
+                return;
+            }
+
+            const result = await authService.updateProfilePhoto(user.id, file);
+
+            const response = {
+                success: result.success,
+                message: result.success ? 'Profile photo updated successfully' : result.error || 'Failed to update profile photo',
+                data: result.data,
+                timestamp: new Date().toISOString(),
+                statusCode: result.statusCode
+            };
+            res.status(result.statusCode || 500).json(response);
+        } catch (error) {
+            const response = {
+                success: false,
+                message: 'Internal server error',
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString(),
+                statusCode: 500
+            };
+            res.status(500).json(response);
+        }
+    }
+
+    async updateProfilePhotoBase64(req: Request, res: Response): Promise<void> {
+        try {
+            const user = (req as any).user;
+            const { base64, fileName, mimeType } = req.body;
+            if (!user) {
+                res.status(401).json({ success: false, message: 'User not authenticated' });
+                return;
+            }
+            if (!base64 || !fileName || !mimeType) {
+                res.status(400).json({ success: false, message: 'base64, fileName ve mimeType zorunlu.' });
+                return;
+            }
+            // base64 decode
+            const buffer = Buffer.from(base64, 'base64');
+            const file: any = {
+                originalname: fileName,
+                mimetype: mimeType,
+                buffer,
+                size: buffer.length
+            };
+            const result = await authService.updateProfilePhoto(user.id, file);
+            res.status(result.statusCode || 500).json(result);
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
     async updateContactInfo(req: Request, res: Response): Promise<void> {
         try {
             // Get user ID from the authenticated user

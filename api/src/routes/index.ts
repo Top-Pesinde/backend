@@ -63,6 +63,8 @@ router.get('/', (req, res) => {
                 appleRegister: 'POST /api/v1/auth/apple-register (Complete Apple registration)',
                 changePassword: 'POST /api/v1/auth/change-password (Change password)',
                 updateProfile: 'PUT /api/v1/auth/profile (Update profile)',
+                updateProfilePhoto: 'PUT /api/v1/auth/profile-photo (Update only profile photo)',
+                updateProfilePhotoBase64: 'PUT /api/v1/auth/profile-photo-base64 (Update profile photo with base64)',
                 updateContactInfo: 'PUT /api/v1/auth/contact-info (Update contact info)',
                 changeSubscription: 'PATCH /api/v1/auth/subscription (Change subscription status)',
                 changeStatus: 'PATCH /api/v1/auth/status (Change user status - ADMIN only)',

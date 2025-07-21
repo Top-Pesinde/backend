@@ -887,6 +887,73 @@ export class AuthService {
         }
     }
 
+    async updateProfilePhoto(userId: string, file: Express.Multer.File): Promise<ServiceResponse<{ user: any }>> {
+        try {
+            // Check if user exists
+            const existingUser = await prisma.user.findUnique({
+                where: { id: userId },
+                include: { documents: true }
+            });
+
+            if (!existingUser) {
+                return {
+                    success: false,
+                    error: 'User not found',
+                    statusCode: 404,
+                };
+            }
+
+            // Delete old profile photo if exists
+            if (existingUser.profilePhoto) {
+                try {
+                    const { MinioService } = await import('../services/minioService');
+                    const minioService = new MinioService();
+                    const url = existingUser.profilePhoto;
+                    const urlParts = url.split('/');
+                    const fileName = urlParts[urlParts.length - 1];
+                    const bucketName = minioService.getBucketName('profile');
+                    await minioService.deleteFile(bucketName, fileName);
+                } catch (err) {
+                    // Log but don't fail if delete fails
+                    console.error('Failed to delete old profile photo:', err);
+                }
+            }
+
+            // Upload new profile photo
+            const { MinioService } = await import('../services/minioService');
+            const minioService = new MinioService();
+            const uploadResult = await minioService.uploadProfilePhoto(file, userId);
+            if (!uploadResult.success) {
+                return {
+                    success: false,
+                    error: 'Failed to upload new profile photo',
+                    statusCode: 500,
+                };
+            }
+
+            // Update user profilePhoto field
+            const updatedUser = await prisma.user.update({
+                where: { id: userId },
+                data: { profilePhoto: uploadResult.data?.url },
+                include: { documents: true }
+            });
+
+            const { password: _, ...userWithoutPassword } = updatedUser;
+            return {
+                success: true,
+                data: { user: userWithoutPassword },
+                statusCode: 200,
+            };
+        } catch (error) {
+            console.error('Error updating profile photo:', error);
+            return {
+                success: false,
+                error: 'Failed to update profile photo',
+                statusCode: 500,
+            };
+        }
+    }
+
     private validatePhoneNumber(phone: string): boolean {
         // Türkiye telefon numarası formatı validasyonu
         // Kabul edilen formatlar:
@@ -1414,7 +1481,7 @@ export class AuthService {
             // Basit token doğrulama - sadece payload'ı decode et (development için)
             // Production'da Apple'ın public key'i ile doğrulama yapılmalı
             const payload = jwt.decode(identityToken) as any;
-            
+
             if (!payload) {
                 return { success: false, error: 'Invalid token payload' };
             }
@@ -1436,8 +1503,8 @@ export class AuthService {
             return { success: true, payload };
         } catch (error) {
             console.error('Apple token verification error:', error);
-            return { 
-                success: false, 
+            return {
+                success: false,
                 error: 'Failed to verify Apple token'
             };
         }
@@ -1486,8 +1553,8 @@ export class AuthService {
                 if (!user.status) {
                     return {
                         success: false,
-                        error: user.role === 'FOOTBALL_FIELD_OWNER' 
-                            ? 'Account is pending admin approval. Please wait for activation.' 
+                        error: user.role === 'FOOTBALL_FIELD_OWNER'
+                            ? 'Account is pending admin approval. Please wait for activation.'
                             : 'Account is deactivated. Please contact support.',
                         statusCode: 403,
                     };
@@ -1542,7 +1609,7 @@ export class AuthService {
 
             // Kullanıcının zaten var olup olmadığını detaylı kontrol et
             const existingUser = await prisma.user.findFirst({
-                where: { 
+                where: {
                     OR: [
                         { googleId },
                         { email },
@@ -1566,11 +1633,11 @@ export class AuthService {
                 }
                 return { success: false, error: errorMessage, statusCode: 409 };
             }
-            
+
             // Profil fotoğrafını URL'den yükle (eğer varsa)
             let finalProfilePhotoUrl: string | null = null;
             if (typeof profilePhoto === 'string' && profilePhoto.startsWith('http')) {
-                 try {
+                try {
                     const { MinioService } = await import('../services/minioService');
                     const minioService = new MinioService();
                     const uploadResult = await minioService.uploadProfilePhotoFromUrl(profilePhoto, username);
@@ -1581,28 +1648,28 @@ export class AuthService {
                     console.error('Failed to upload profile photo from Google URL:', error);
                 }
             }
-            
+
             // FOOTBALL_FIELD_OWNER için status false, diğerleri için true
             const userStatus = role === 'FOOTBALL_FIELD_OWNER' ? false : true;
-            
+
             // Yeni kullanıcıyı oluştur
-             const newUser = await prisma.user.create({
-                 data: {
-                     googleId,
-                     email,
-                     username,
-                     firstName,
-                     lastName,
-                     phone,
-                     location,
-                     bio,
-                     role: role as any, // Role enum casting
-                     profilePhoto: finalProfilePhotoUrl,
-                     password: hashedPassword,
-                     status: userStatus, // FOOTBALL_FIELD_OWNER için false
-                 },
-                 include: { documents: true }
-             });
+            const newUser = await prisma.user.create({
+                data: {
+                    googleId,
+                    email,
+                    username,
+                    firstName,
+                    lastName,
+                    phone,
+                    location,
+                    bio,
+                    role: role as any, // Role enum casting
+                    profilePhoto: finalProfilePhotoUrl,
+                    password: hashedPassword,
+                    status: userStatus, // FOOTBALL_FIELD_OWNER için false
+                },
+                include: { documents: true }
+            });
 
             // Document upload handling (eğer varsa)
             if (registrationData.documents && registrationData.documents.length > 0) {
@@ -1625,7 +1692,7 @@ export class AuthService {
             console.error('Error in completeGoogleRegistration:', error);
             // Prisma'nın unique constraint hatasını yakala
             if (error instanceof Error && (error as any).code === 'P2002') {
-                 return { success: false, error: 'Username or email already in use.', statusCode: 409 };
+                return { success: false, error: 'Username or email already in use.', statusCode: 409 };
             }
             return { success: false, error: 'Google registration failed', statusCode: 500 };
         }
@@ -1655,7 +1722,7 @@ export class AuthService {
 
             // Apple ID ile kullanıcıyı ara (email ile de ara çünkü email bazen null olabilir)
             let user = await prisma.user.findFirst({
-                where: { 
+                where: {
                     OR: [
                         { appleId },
                         ...(email ? [{ email }] : [])
@@ -1679,8 +1746,8 @@ export class AuthService {
                 if (!user.status) {
                     return {
                         success: false,
-                        error: user.role === 'FOOTBALL_FIELD_OWNER' 
-                            ? 'Account is pending admin approval. Please wait for activation.' 
+                        error: user.role === 'FOOTBALL_FIELD_OWNER'
+                            ? 'Account is pending admin approval. Please wait for activation.'
                             : 'Account is deactivated. Please contact support.',
                         statusCode: 403,
                     };
@@ -1741,7 +1808,7 @@ export class AuthService {
 
             // Kullanıcının zaten var olup olmadığını detaylı kontrol et
             const existingUser = await prisma.user.findFirst({
-                where: { 
+                where: {
                     OR: [
                         { appleId },
                         { email },
@@ -1765,10 +1832,10 @@ export class AuthService {
                 }
                 return { success: false, error: errorMessage, statusCode: 409 };
             }
-            
+
             // FOOTBALL_FIELD_OWNER için status false, diğerleri için true
             const userStatus = role === 'FOOTBALL_FIELD_OWNER' ? false : true;
-            
+
             // Yeni kullanıcıyı oluştur
             const newUser = await prisma.user.create({
                 data: {
@@ -1809,7 +1876,7 @@ export class AuthService {
             console.error('Error in completeAppleRegistration:', error);
             // Prisma'nın unique constraint hatasını yakala
             if (error instanceof Error && (error as any).code === 'P2002') {
-                 return { success: false, error: 'Username or email already in use.', statusCode: 409 };
+                return { success: false, error: 'Username or email already in use.', statusCode: 409 };
             }
             return { success: false, error: 'Apple registration failed', statusCode: 500 };
         }
@@ -1830,7 +1897,7 @@ export class AuthService {
         }
 
         const ipAddress = req?.ip || req?.connection?.remoteAddress || req?.socket?.remoteAddress;
-        
+
         let location: string | null = null;
         if ('latitude' in requestData && 'longitude' in requestData && requestData.latitude && requestData.longitude) {
             location = await this.sessionService.getLocationFromCoordinates(requestData.latitude, requestData.longitude);

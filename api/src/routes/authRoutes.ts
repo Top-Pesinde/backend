@@ -87,6 +87,12 @@ router.put('/contact-info', authenticateToken, authController.updateContactInfo.
 // DELETE /api/auth/profile-photo - Kullanıcı profil fotoğrafı silme (korumalı)
 router.delete('/profile-photo', authenticateToken, authController.deleteProfilePhoto.bind(authController));
 
+// PUT /api/auth/profile-photo - Sadece profil fotoğrafı güncelleme (korumalı)
+router.put('/profile-photo', authenticateToken, upload.single('profilePhoto'), authController.updateProfilePhoto.bind(authController));
+
+// PUT /api/auth/profile-photo-base64 - Base64 ile profil fotoğrafı güncelleme (korumalı)
+router.put('/profile-photo-base64', authenticateToken, authController.updateProfilePhotoBase64.bind(authController));
+
 // Session Management Routes (korumalı)
 
 // GET /api/auth/sessions - Kullanıcının aktif oturumlarını listele
