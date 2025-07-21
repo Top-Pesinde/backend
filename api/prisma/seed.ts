@@ -127,6 +127,33 @@ async function main() {
                 profilePhoto: profileImageUrl || null, // URL varsa ekle
             },
         }),
+        // Socket test kullanıcıları
+        prisma.user.create({
+            data: {
+                firstName: 'Socket',
+                lastName: 'Test1',
+                username: 'sockettest1',
+                email: 'sockettest1@test.com',
+                password: hashedPassword,
+                phone: '5551111111',
+                location: 'Test',
+                bio: 'Socket Test User 1',
+                role: 'USER',
+            },
+        }),
+        prisma.user.create({
+            data: {
+                firstName: 'Socket',
+                lastName: 'Test2',
+                username: 'sockettest2',
+                email: 'sockettest2@test.com',
+                password: hashedPassword,
+                phone: '5552222222',
+                location: 'Test',
+                bio: 'Socket Test User 2',
+                role: 'USER',
+            },
+        }),
     ]);
 
     console.log('✅ Tohumlama tamamlandı!');

@@ -8,7 +8,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { metricsMiddleware } from './middleware/metricsMiddleware';
 import { UserSessionService } from './services/userSessionService';
-import { initializeSocket } from './services/socketService';
+import { initializeSocket } from './services/socket';
 import { router as apiRoutes } from './routes';
 
 const app = express();
@@ -27,7 +27,12 @@ const socketService = initializeSocket(httpServer);
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+    origin: "*", // Tüm origin'lere izin ver
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["*"],
+    credentials: false
+}));
 app.use(metricsMiddleware); // Add metrics collection before rate limiting
 // app.use(limiter); // Rate limit geçici olarak kapatıldı
 app.use(express.json({ limit: '10mb' }));

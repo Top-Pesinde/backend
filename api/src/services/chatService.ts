@@ -119,7 +119,7 @@ export class ChatService {
                         error: 'Bu kullanıcı kalıcı olarak banlandı. Mesaj gönderemezsiniz.'
                     };
                 }
-                
+
                 return {
                     success: false,
                     error: 'Bu kullanıcıya mesaj gönderemezsiniz.'
@@ -227,11 +227,12 @@ export class ChatService {
         conversationId: string,
         userId: string,
         page: number = 1,
-        limit: number = 50
+        limit: number = 50,
+        fromDate?: Date
     ): Promise<{
         success: boolean;
         data?: {
-            messages: Message[];
+            messages: any[];
             totalCount: number;
             hasMore: boolean;
         };
@@ -253,18 +254,28 @@ export class ChatService {
             if (!conversation) {
                 return {
                     success: false,
-                    error: 'Konuşmaya erişim yetkiniz yok'
+                    error: 'Konuşma bulunamadı veya erişim yetkiniz yok'
                 };
             }
 
             const skip = (page - 1) * limit;
 
+            // Tarih filtresi için where koşulunu hazırla
+            const messageWhere: any = {
+                conversationId,
+                isDeleted: false
+            };
+
+            // Eğer fromDate verilmişse, o tarihten itibaren mesajları getir
+            if (fromDate) {
+                messageWhere.createdAt = {
+                    gte: fromDate
+                };
+            }
+
             // Mesajları getir
             const messages = await prisma.message.findMany({
-                where: {
-                    conversationId,
-                    isDeleted: false
-                },
+                where: messageWhere,
                 include: {
                     sender: {
                         select: {
@@ -300,20 +311,49 @@ export class ChatService {
                 take: limit
             });
 
-            // Toplam mesaj sayısı
+            // Toplam mesaj sayısı (filtrelenmiş)
             const totalCount = await prisma.message.count({
-                where: {
-                    conversationId,
-                    isDeleted: false
-                }
+                where: messageWhere
             });
 
             const hasMore = skip + messages.length < totalCount;
 
+            // Mesajları TR formatında tarihe çevir
+            const formattedMessages = messages.map(message => ({
+                ...message,
+                createdAt: message.createdAt.toLocaleString('tr-TR', {
+                    timeZone: 'Europe/Istanbul',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }),
+                readAt: message.readAt ? message.readAt.toLocaleString('tr-TR', {
+                    timeZone: 'Europe/Istanbul',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }) : null,
+                editedAt: message.editedAt ? message.editedAt.toLocaleString('tr-TR', {
+                    timeZone: 'Europe/Istanbul',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }) : null
+            }));
+
             return {
                 success: true,
                 data: {
-                    messages: messages.reverse(), // En eski mesajdan en yeniye doğru sırala
+                    messages: formattedMessages.reverse(), // En eski mesajdan en yeniye doğru sırala
                     totalCount,
                     hasMore
                 }
@@ -327,10 +367,216 @@ export class ChatService {
         }
     }
 
-    // Kullanıcının konuşmalarını getir
-    async getUserConversations(userId: string): Promise<{
+    // Konuşmanın TÜM mesajlarını getir (sınırlama olmadan)
+    async getAllConversationMessages(
+        conversationId: string,
+        userId: string
+    ): Promise<{
         success: boolean;
-        data?: Conversation[];
+        data?: any[];
+        error?: string;
+    }> {
+        try {
+            // Kullanıcının bu konuşmaya erişiminin olduğunu kontrol et
+            const conversation = await prisma.conversation.findFirst({
+                where: {
+                    id: conversationId,
+                    OR: [
+                        { user1Id: userId },
+                        { user2Id: userId }
+                    ],
+                    isActive: true
+                }
+            });
+
+            if (!conversation) {
+                return {
+                    success: false,
+                    error: 'Konuşma bulunamadı veya erişim yetkiniz yok'
+                };
+            }
+
+            // TÜM mesajları getir (limit yok)
+            const messages = await prisma.message.findMany({
+                where: {
+                    conversationId,
+                    isDeleted: false
+                },
+                include: {
+                    sender: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                            profilePhoto: true
+                        }
+                    },
+                    receiver: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                            profilePhoto: true
+                        }
+                    },
+                    replyTo: {
+                        select: {
+                            id: true,
+                            content: true,
+                            senderId: true,
+                            messageType: true
+                        }
+                    }
+                },
+                orderBy: {
+                    createdAt: 'asc' // En eski mesajdan en yeniye doğru
+                }
+            });
+
+            // Mesajları TR formatında tarihe çevir
+            const formattedMessages = messages.map(message => ({
+                ...message,
+                createdAt: message.createdAt.toLocaleString('tr-TR', {
+                    timeZone: 'Europe/Istanbul',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }),
+                readAt: message.readAt ? message.readAt.toLocaleString('tr-TR', {
+                    timeZone: 'Europe/Istanbul',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }) : null,
+                editedAt: message.editedAt ? message.editedAt.toLocaleString('tr-TR', {
+                    timeZone: 'Europe/Istanbul',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }) : null
+            }));
+
+            return {
+                success: true,
+                data: formattedMessages
+            };
+        } catch (error) {
+            console.error('Tüm mesajları getirme hatası:', error);
+            return {
+                success: false,
+                error: 'Tüm mesajlar getirilemedi'
+            };
+        }
+    }
+
+    // Mesajı ID ile getir (okundu durumu kontrolü için)
+    async getMessageById(messageId: string): Promise<{
+        success: boolean;
+        data?: any;
+        error?: string;
+    }> {
+        try {
+            const message = await prisma.message.findUnique({
+                where: {
+                    id: messageId,
+                    isDeleted: false
+                },
+                include: {
+                    sender: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                            profilePhoto: true
+                        }
+                    },
+                    receiver: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                            profilePhoto: true
+                        }
+                    },
+                    conversation: {
+                        select: {
+                            id: true,
+                            user1Id: true,
+                            user2Id: true
+                        }
+                    }
+                }
+            });
+
+            if (!message) {
+                return {
+                    success: false,
+                    error: 'Mesaj bulunamadı'
+                };
+            }
+
+            // Mesajı TR formatında tarihe çevir
+            const formattedMessage = {
+                ...message,
+                createdAt: message.createdAt.toLocaleString('tr-TR', {
+                    timeZone: 'Europe/Istanbul',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }),
+                readAt: message.readAt ? message.readAt.toLocaleString('tr-TR', {
+                    timeZone: 'Europe/Istanbul',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }) : null,
+                editedAt: message.editedAt ? message.editedAt.toLocaleString('tr-TR', {
+                    timeZone: 'Europe/Istanbul',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }) : null
+            };
+
+            return {
+                success: true,
+                data: formattedMessage
+            };
+        } catch (error) {
+            console.error('Mesaj getirme hatası:', error);
+            return {
+                success: false,
+                error: 'Mesaj getirilemedi'
+            };
+        }
+    }
+
+    // Kullanıcının konuşmalarını getir (son mesaj dahil)
+    async getUserConversationsWithLastMessage(userId: string): Promise<{
+        success: boolean;
+        data?: any[];
         error?: string;
     }> {
         try {
@@ -339,8 +585,8 @@ export class ChatService {
                     OR: [
                         { user1Id: userId },
                         { user2Id: userId }
-                    ],
-                    isActive: true
+                    ]
+                    // isActive: true filtresini kaldırdık - engellenen kullanıcılar da görünsün
                 },
                 include: {
                     user1: {
@@ -360,20 +606,6 @@ export class ChatService {
                             username: true,
                             profilePhoto: true
                         }
-                    },
-                    messages: {
-                        select: {
-                            id: true,
-                            isRead: true,
-                            receiverId: true
-                        },
-                        where: {
-                            isDeleted: false
-                        },
-                        orderBy: {
-                            createdAt: 'desc'
-                        },
-                        take: 1
                     }
                 },
                 orderBy: {
@@ -381,9 +613,43 @@ export class ChatService {
                 }
             });
 
-            // Her konuşma için okunmamış mesaj sayısını hesapla
-            const conversationsWithUnreadCount = await Promise.all(
+            // Her konuşma için son mesaj, okunmamış mesaj sayısını ve engel durumunu hesapla
+            const conversationsWithDetails = await Promise.all(
                 conversations.map(async (conversation) => {
+                    const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
+
+                    // Son mesajı getir (tam detaylarıyla)
+                    const lastMessage = await prisma.message.findFirst({
+                        where: {
+                            conversationId: conversation.id,
+                            isDeleted: false
+                        },
+                        include: {
+                            sender: {
+                                select: {
+                                    id: true,
+                                    firstName: true,
+                                    lastName: true,
+                                    username: true,
+                                    profilePhoto: true
+                                }
+                            },
+                            receiver: {
+                                select: {
+                                    id: true,
+                                    firstName: true,
+                                    lastName: true,
+                                    username: true,
+                                    profilePhoto: true
+                                }
+                            }
+                        },
+                        orderBy: {
+                            createdAt: 'desc'
+                        }
+                    });
+
+                    // Okunmamış mesaj sayısı
                     const unreadCount = await prisma.message.count({
                         where: {
                             conversationId: conversation.id,
@@ -393,16 +659,48 @@ export class ChatService {
                         }
                     });
 
+                    // Engel durumu kontrol et
+                    const blockStatus = await this.checkBlockStatus(userId, otherUserId);
+
+                    // Son mesajı TR formatında tarihe çevir
+                    const formattedLastMessage = lastMessage ? {
+                        ...lastMessage,
+                        createdAt: lastMessage.createdAt.toLocaleString('tr-TR', {
+                            timeZone: 'Europe/Istanbul',
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        }),
+                        readAt: lastMessage.readAt ? lastMessage.readAt.toLocaleString('tr-TR', {
+                            timeZone: 'Europe/Istanbul',
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        }) : null
+                    } : null;
+
                     return {
                         ...conversation,
-                        unreadCount
+                        lastMessage: formattedLastMessage,
+                        unreadCount,
+                        blockStatus: {
+                            isBlocked: blockStatus.isBlocked,
+                            hasBlocked: blockStatus.hasBlocked,
+                            canMessage: !blockStatus.isBlocked && !blockStatus.hasBlocked
+                        }
                     };
                 })
             );
 
             return {
                 success: true,
-                data: conversationsWithUnreadCount
+                data: conversationsWithDetails
             };
         } catch (error) {
             console.error('Konuşmaları getirme hatası:', error);
@@ -411,6 +709,16 @@ export class ChatService {
                 error: 'Konuşmalar getirilemedi'
             };
         }
+    }
+
+    // Kullanıcının konuşmalarını getir (eski metod - geriye dönük uyumluluk için)
+    async getUserConversations(userId: string): Promise<{
+        success: boolean;
+        data?: any[];
+        error?: string;
+    }> {
+        // Yeni metodu çağır
+        return this.getUserConversationsWithLastMessage(userId);
     }
 
     // Mesajı okundu olarak işaretle
@@ -644,6 +952,43 @@ export class ChatService {
         }
     }
 
+    // Engel durumunu detaylı kontrol et
+    async checkBlockStatus(user1Id: string, user2Id: string): Promise<{
+        isBlocked: boolean;
+        hasBlocked: boolean;
+    }> {
+        try {
+            const user1BlockedUser2 = await prisma.userBlock.findUnique({
+                where: {
+                    blockedById_blockedUserId: {
+                        blockedById: user1Id,
+                        blockedUserId: user2Id
+                    }
+                }
+            });
+
+            const user2BlockedUser1 = await prisma.userBlock.findUnique({
+                where: {
+                    blockedById_blockedUserId: {
+                        blockedById: user2Id,
+                        blockedUserId: user1Id
+                    }
+                }
+            });
+
+            return {
+                isBlocked: !!user2BlockedUser1, // User2, User1'i engellemiş mi?
+                hasBlocked: !!user1BlockedUser2  // User1, User2'yi engellemiş mi?
+            };
+        } catch (error) {
+            console.error('Engel durumu kontrolü hatası:', error);
+            return {
+                isBlocked: false,
+                hasBlocked: false
+            };
+        }
+    }
+
     // İki kullanıcının birbirini banladığını kontrol et
     async checkIfBanned(user1Id: string, user2Id: string): Promise<boolean> {
         try {
@@ -773,6 +1118,152 @@ export class ChatService {
                 success: false,
                 error: 'Mesaj düzenlenemedi'
             };
+        }
+    }
+
+    // Konuşma detayını getir
+    async getConversationDetail(conversationId: string, userId: string, targetDate?: Date): Promise<{
+        success: boolean;
+        data?: any;
+        error?: string;
+    }> {
+        try {
+            const conversation = await prisma.conversation.findUnique({
+                where: { id: conversationId },
+                include: {
+                    user1: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                            profilePhoto: true
+                        }
+                    },
+                    user2: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                            profilePhoto: true
+                        }
+                    }
+                }
+            });
+
+            if (!conversation) {
+                return { success: false, error: 'Konuşma bulunamadı' };
+            }
+
+            const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
+
+            // Tarih filtresi için where koşulunu hazırla
+            const messageWhere: any = {
+                conversationId,
+                isDeleted: false
+            };
+
+            // Eğer targetDate verilmişse, o tarihteki mesajları getir
+            if (targetDate) {
+                const startOfDay = new Date(targetDate);
+                startOfDay.setHours(0, 0, 0, 0);
+
+                const endOfDay = new Date(targetDate);
+                endOfDay.setHours(23, 59, 59, 999);
+
+                messageWhere.createdAt = {
+                    gte: startOfDay,
+                    lte: endOfDay
+                };
+            }
+
+            // Hem kendi hem karşı tarafın mesajlarını getir (eski->yeni)
+            const allMessages = await prisma.message.findMany({
+                where: messageWhere,
+                select: {
+                    id: true,
+                    content: true,
+                    createdAt: true,
+                    isRead: true,
+                    senderId: true,
+                    receiverId: true
+                },
+                orderBy: { createdAt: 'asc' } // Eski mesajlar önce (ilk mesaj en üstte)
+            });
+
+            // İlk mesajı al (en eski mesaj)
+            const firstMessage = allMessages.length > 0 ? allMessages[0] : null;
+
+            const totalMessages = await prisma.message.count({ where: { conversationId } });
+            const unreadCount = await prisma.message.count({
+                where: {
+                    conversationId,
+                    receiverId: userId,
+                    isRead: false,
+                    isDeleted: false
+                }
+            });
+
+            const blockStatus = await this.checkBlockStatus(userId, otherUserId);
+
+            return {
+                success: true,
+                data: {
+                    ...conversation,
+                    stats: {
+                        totalMessages,
+                        unreadCount,
+                        firstMessage: firstMessage, // İlk mesaj bilgisi
+                        targetDate: targetDate?.toISOString() || null
+                    },
+                    allMessages: allMessages, // Filtrelenmiş mesajlar
+                    blockStatus: {
+                        isBlocked: blockStatus.isBlocked,
+                        hasBlocked: blockStatus.hasBlocked,
+                        canMessage: !blockStatus.isBlocked && !blockStatus.hasBlocked
+                    }
+                }
+            };
+        } catch (error) {
+            console.error('Konuşma detayı getirme hatası:', error);
+            return { success: false, error: 'Konuşma detayı getirilemedi' };
+        }
+    }
+
+    // Konuşmadaki okunmamış mesaj sayısını getir
+    async getUnreadCount(conversationId: string, userId: string): Promise<number> {
+        try {
+            const count = await prisma.message.count({
+                where: {
+                    conversationId,
+                    receiverId: userId,
+                    isRead: false,
+                    isDeleted: false
+                }
+            });
+            return count;
+        } catch (error) {
+            console.error('Okunmamış mesaj sayısı getirme hatası:', error);
+            return 0;
+        }
+    }
+
+    // Bir konuşmadaki okunmamış mesajları getir
+    async getUnreadMessages(conversationId: string, userId: string) {
+        try {
+            return await prisma.message.findMany({
+                where: {
+                    conversationId,
+                    receiverId: userId,
+                    isRead: false,
+                    isDeleted: false
+                },
+                orderBy: { createdAt: 'asc' }
+            });
+        } catch (error) {
+            console.error('Okunmamış mesajları getirme hatası:', error);
+            return [];
         }
     }
 }

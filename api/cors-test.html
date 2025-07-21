@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Test</title>
+</head>
+<body>
+    <h1>CORS Test</h1>
+    <div id="status">Testing...</div>
+    <div id="log"></div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const statusDiv = document.getElementById('status');
+        const logDiv = document.getElementById('log');
+        
+        function log(message) {
+            console.log(message);
+            logDiv.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+        }
+        
+        log('🔌 Socket.IO bağlantısı test ediliyor...');
+        
+        // Önce basit bir fetch testi
+        fetch('http://localhost:3000/health')
+            .then(response => response.json())
+            .then(data => {
+                log('✅ HTTP bağlantısı başarılı: ' + JSON.stringify(data));
+                
+                // Şimdi Socket.IO'yu test et
+                testSocket();
+            })
+            .catch(error => {
+                log('❌ HTTP bağlantısı başarısız: ' + error.message);
+                statusDiv.textContent = 'HTTP bağlantısı başarısız';
+            });
+        
+        function testSocket() {
+            log('🔌 Socket.IO test başlıyor...');
+            
+            const socket = io('http://localhost:3000', {
+                transports: ['polling', 'websocket'],
+                forceNew: true,
+                timeout: 10000
+            });
+            
+            socket.on('connect', () => {
+                log('✅ Socket.IO bağlantısı başarılı!');
+                statusDiv.textContent = 'Socket.IO bağlantısı başarılı!';
+                statusDiv.style.color = 'green';
+                
+                // Test mesajı gönder
+                socket.emit('ping', { test: true });
+            });
+            
+            socket.on('connect_error', (error) => {
+                log('❌ Socket.IO bağlantı hatası: ' + error.message);
+                statusDiv.textContent = 'Socket.IO bağlantı hatası: ' + error.message;
+                statusDiv.style.color = 'red';
+            });
+            
+            socket.on('pong', (data) => {
+                log('🏓 Pong alındı: ' + JSON.stringify(data));
+            });
+            
+            socket.on('disconnect', (reason) => {
+                log('🔌 Bağlantı kesildi: ' + reason);
+            });
+            
+            // 5 saniye sonra bağlantıyı test et
+            setTimeout(() => {
+                if (socket.connected) {
+                    log('✅ Socket hala bağlı');
+                } else {
+                    log('❌ Socket bağlantısı kesildi');
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

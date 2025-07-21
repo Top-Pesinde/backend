@@ -720,6 +720,7 @@ export class AuthService {
             if (profileData.firstName) updateData.firstName = profileData.firstName;
             if (profileData.lastName) updateData.lastName = profileData.lastName;
             if (profileData.location !== undefined) updateData.location = profileData.location;
+            if (profileData.profilePhoto) updateData.profilePhoto = profileData.profilePhoto;
 
             // Update user profile
             const updatedUser = await prisma.user.update({

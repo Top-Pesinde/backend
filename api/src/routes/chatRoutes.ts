@@ -12,6 +12,7 @@ router.post('/conversations/start', chatController.startConversation);
 router.get('/conversations', chatController.getConversations);
 router.get('/conversations/:conversationId/messages', chatController.getMessages);
 router.put('/conversations/:conversationId/read', chatController.markMessagesAsRead);
+router.get('/conversations/:conversationId/detail', chatController.getConversationDetail);
 
 // Mesaj route'ları
 router.post('/messages/send', chatController.sendMessage);

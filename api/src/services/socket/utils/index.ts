@@ -1,0 +1,1 @@
+export { SocketEventEmitter } from './eventEmitter';

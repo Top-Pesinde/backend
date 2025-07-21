@@ -1,6 +1,7 @@
 import { Expo, ExpoPushMessage, ExpoPushTicket, ExpoPushReceipt } from 'expo-server-sdk';
 import { fcmTokenService } from './fcmTokenService';
 import { prisma } from '../lib/prisma';
+import { SocketEventEmitter } from './socket';
 
 export class NotificationService {
     private expo: Expo;
@@ -61,6 +62,14 @@ export class NotificationService {
             const tickets = await this.expo.sendPushNotificationsAsync(messages);
             console.log('Kaleci teklif bildirimi gönderildi:', tickets);
 
+            // Socket bildirimi de gönder
+            SocketEventEmitter.sendPushNotification(recipientUserId, {
+                type: 'GOALKEEPER_OFFER_RECEIVED',
+                title: '🥅 Yeni Kaleci Teklifi Geldi!',
+                body: `${offerData.senderName} kaleci ilanınız için teklif gönderdi.`,
+                data: offerData
+            });
+
             return { success: true };
         } catch (error) {
             console.error('Kaleci teklif bildirimi gönderme hatası:', error);
@@ -120,6 +129,14 @@ export class NotificationService {
             const tickets = await this.expo.sendPushNotificationsAsync(messages);
             console.log('Hakem teklif bildirimi gönderildi:', tickets);
 
+            // Socket bildirimi de gönder
+            SocketEventEmitter.sendPushNotification(recipientUserId, {
+                type: 'REFEREE_OFFER_RECEIVED',
+                title: '⚽ Yeni Hakem Teklifi Geldi!',
+                body: `${offerData.senderName} hakem ilanınız için teklif gönderdi.`,
+                data: offerData
+            });
+
             return { success: true };
         } catch (error) {
             console.error('Hakem teklif bildirimi gönderme hatası:', error);
@@ -178,6 +195,14 @@ export class NotificationService {
 
             const tickets = await this.expo.sendPushNotificationsAsync(messages);
             console.log('Halı saha teklif bildirimi gönderildi:', tickets);
+
+            // Socket bildirimi de gönder
+            SocketEventEmitter.sendPushNotification(recipientUserId, {
+                type: 'FIELD_OFFER_RECEIVED',
+                title: '🏟️ Yeni Halı Saha Teklifi Geldi!',
+                body: `${offerData.senderName} halı sahanız için teklif gönderdi.`,
+                data: offerData
+            });
 
             return { success: true };
         } catch (error) {

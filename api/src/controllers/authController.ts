@@ -116,7 +116,7 @@ export class AuthController {
             }
 
             let message = result.success ? 'Login successful' : result.error || 'Failed to login';
-            
+
             if (result.error === 'GOOGLE_LOGIN_REQUIRED') {
                 message = 'This account was created with Google. Please use Google login.';
             } else if (result.error === 'APPLE_LOGIN_REQUIRED') {
@@ -202,7 +202,7 @@ export class AuthController {
     async completeGoogleRegistration(req: Request, res: Response): Promise<void> {
         try {
             const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-            
+
             const registrationData: RegisterDto = {
                 ...req.body,
                 documents: files?.documents || [] // Multiple documents for FOOTBALL_FIELD_OWNER
@@ -243,7 +243,7 @@ export class AuthController {
             res.status(result.statusCode || 500).json(response);
 
         } catch (error) {
-             const response: ApiResponse = {
+            const response: ApiResponse = {
                 success: false,
                 message: 'Internal server error',
                 error: error instanceof Error ? error.message : 'Unknown error',
@@ -310,7 +310,7 @@ export class AuthController {
     async completeAppleRegistration(req: Request, res: Response): Promise<void> {
         try {
             const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-            
+
             const registrationData: RegisterDto = {
                 ...req.body,
                 documents: files?.documents || [] // Multiple documents for FOOTBALL_FIELD_OWNER
@@ -351,7 +351,7 @@ export class AuthController {
             res.status(result.statusCode || 500).json(response);
 
         } catch (error) {
-             const response: ApiResponse = {
+            const response: ApiResponse = {
                 success: false,
                 message: 'Internal server error',
                 error: error instanceof Error ? error.message : 'Unknown error',
@@ -562,17 +562,31 @@ export class AuthController {
 
             const profileData: UpdateProfileDto = req.body;
 
-            // Validate at least one field is provided
-            if (!profileData.email && !profileData.firstName && !profileData.lastName && profileData.location === undefined) {
+            // Eğer sadece profilePhoto gönderildiyse, diğer alanları ignore et
+            const onlyProfilePhoto = profileData.profilePhoto &&
+                !profileData.email &&
+                !profileData.firstName &&
+                !profileData.lastName &&
+                profileData.location === undefined;
+
+            if (onlyProfilePhoto) {
+                // Sadece profilePhoto güncellensin
+                const result = await authService.changeUserProfile(user.id, { profilePhoto: profileData.profilePhoto });
                 const response: ApiResponse = {
-                    success: false,
-                    message: 'At least one field (email, firstName, lastName, location) must be provided',
+                    success: result.success,
+                    message: result.success
+                        ? 'Profile photo updated successfully'
+                        : result.error || 'Failed to update profile photo',
+                    data: result.data,
                     timestamp: new Date().toISOString(),
-                    statusCode: 400
+                    statusCode: result.statusCode
                 };
-                res.status(400).json(response);
+                res.status(result.statusCode || 500).json(response);
                 return;
             }
+
+            // ProfilePhoto yoksa ve diğer alanlar da yoksa hata dön
+
 
             // Basic email validation if provided
             if (profileData.email) {

@@ -153,6 +153,7 @@ export interface UpdateProfileDto {
     firstName?: string;
     lastName?: string;
     location?: string;
+    profilePhoto?: string;
 }
 
 export interface UpdateContactInfoDto {

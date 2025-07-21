@@ -1,7 +1,8 @@
 import { Response } from 'express';
 import { chatService } from '../services/chatService';
-import { getSocketService } from '../services/socketService';
+import { getSocketService } from '../services/socket';
 import { CustomRequest } from '../types';
+import { notificationService } from '../services/notificationService';
 
 export class ChatController {
     // Konuşma başlat veya mevcut konuşmayı getir
@@ -53,7 +54,7 @@ export class ChatController {
         }
     }
 
-    // Kullanıcının konuşmalarını getir
+    // Kullanıcının konuşmalarını getir (son mesaj dahil)
     async getConversations(req: CustomRequest, res: Response): Promise<any> {
         try {
             const userId = req.user?.id;
@@ -92,8 +93,7 @@ export class ChatController {
         try {
             const userId = req.user?.id;
             const { conversationId } = req.params;
-            const page = parseInt(req.query.page as string) || 1;
-            const limit = parseInt(req.query.limit as string) || 50;
+            const { date, all } = req.query; // Query parametresinden tarihi ve all parametresini al
 
             if (!userId) {
                 return res.status(401).json({
@@ -109,11 +109,51 @@ export class ChatController {
                 });
             }
 
+            // Eğer all=true parametresi varsa, tüm mesajları getir
+            if (all === 'true') {
+                const result = await chatService.getAllConversationMessages(conversationId, userId);
+
+                if (!result.success) {
+                    return res.status(400).json({
+                        success: false,
+                        message: result.error
+                    });
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    data: result.data
+                });
+            }
+
+            // Sayfalama ile mesajları getir (eski davranış)
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 50;
+
+            // Tarih parametresini işle
+            let fromDate: Date | undefined;
+            if (date && typeof date === 'string') {
+                fromDate = new Date(date);
+                // Geçersiz tarih kontrolü
+                if (isNaN(fromDate.getTime())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Geçersiz tarih formatı'
+                    });
+                }
+                fromDate.setHours(0, 0, 0, 0); // Günün başlangıcı
+            } else {
+                // Tarih verilmemişse bugünün tarihini kullan
+                fromDate = new Date();
+                fromDate.setHours(0, 0, 0, 0);
+            }
+
             const result = await chatService.getConversationMessages(
                 conversationId,
                 userId,
                 page,
-                limit
+                limit,
+                fromDate
             );
 
             if (!result.success) {
@@ -171,6 +211,14 @@ export class ChatController {
                     message: result.error
                 });
             }
+
+            // Push notification gönder
+            notificationService.sendCustomNotification(
+                receiverId,
+                'Yeni Mesaj',
+                'Sana yeni bir mesaj geldi',
+                { message: result.data }
+            );
 
             // Socket ile bildirim gönder
             try {
@@ -363,6 +411,8 @@ export class ChatController {
                 });
             }
 
+
+
             return res.status(200).json({
                 success: true,
                 message: 'Kullanıcı engellendi'
@@ -403,6 +453,18 @@ export class ChatController {
                     success: false,
                     message: result.error
                 });
+            }
+
+            // Socket ile bildirim gönder
+            try {
+                const socketService = getSocketService();
+                socketService.sendToUser(blockedUserId, 'user_unblocked', {
+                    unblockedBy: req.user,
+                    unblockedUser: { id: blockedUserId },
+                    timestamp: new Date().toISOString()
+                });
+            } catch (socketError) {
+                console.error('Socket bildirimi gönderilemedi:', socketError);
             }
 
             return res.status(200).json({
@@ -486,6 +548,67 @@ export class ChatController {
             return res.status(500).json({
                 success: false,
                 message: 'Engelleme durumu kontrol edilemedi'
+            });
+        }
+    }
+
+    // Konuşma detayını getir
+    async getConversationDetail(req: CustomRequest, res: Response): Promise<any> {
+        try {
+            const userId = req.user?.id;
+            const { conversationId } = req.params;
+            const { date } = req.query; // Query parametresinden tarihi al
+
+            if (!userId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Kimlik doğrulama gerekli'
+                });
+            }
+
+            if (!conversationId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Konuşma ID gerekli'
+                });
+            }
+
+            // Tarih parametresini işle
+            let targetDate: Date | undefined;
+            if (date && typeof date === 'string') {
+                targetDate = new Date(date);
+                // Geçersiz tarih kontrolü
+                if (isNaN(targetDate.getTime())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Geçersiz tarih formatı'
+                    });
+                }
+                targetDate.setHours(0, 0, 0, 0); // Günün başlangıcı
+            } else {
+                // Tarih verilmemişse bugünün tarihini kullan
+                targetDate = new Date();
+                targetDate.setHours(0, 0, 0, 0);
+            }
+
+            const result = await chatService.getConversationDetail(conversationId, userId, targetDate);
+
+            if (!result.success) {
+                return res.status(400).json({
+                    success: false,
+                    message: result.error
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                data: result.data
+            });
+        } catch (error) {
+            console.error('Konuşma detayı getirme hatası:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Konuşma detayı getirilemedi'
             });
         }
     }
